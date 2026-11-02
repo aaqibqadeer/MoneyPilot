@@ -153,21 +153,23 @@ const billInput = z.object({
   amountCents: z.number().int().min(0).max(1e10).nullable().optional(),
   dueDate: z.coerce.date(),
   recurrence: z.enum(["none", "weekly", "monthly", "yearly"]),
+  accountId: z.string().max(64).optional(),
 });
 
 /** Manual bill, or a detected recurring charge the user chose to track. */
 export async function createBill(input: z.input<typeof billInput>, source: "manual" | "recurring" = "manual") {
   return run(async (userId) => {
-    const b = billInput.parse(input);
+    const { accountId, ...b } = billInput.parse(input);
+    if (accountId && !(await repos(userId).accounts.byId(accountId))) throw new Error("Unknown account");
     const id = newId();
-    const op = createOp("bills", id, { ...b, amountCents: b.amountCents ?? null, source: z.enum(["manual", "recurring"]).parse(source), status: "upcoming" });
+    const op = createOp("bills", id, { ...b, ...(accountId ? { accountId } : {}), amountCents: b.amountCents ?? null, source: z.enum(["manual", "recurring"]).parse(source), status: "upcoming" });
     return { id, changeSetId: await commit(userId, `Added bill ${b.name}`, [op]) };
   });
 }
 
 export async function updateBill(id: string, input: Partial<z.input<typeof billInput>>) {
   return run(async (userId) => {
-    const i = billInput.partial().parse(input);
+    const i = billInput.omit({ accountId: true }).partial().parse(input);
     const bill = await repos(userId).bills.byId(idSchema.parse(id));
     if (!bill) throw new HttpError(404, "Bill not found");
     const op = updateOp("bills", bill as never, i);

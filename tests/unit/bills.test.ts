@@ -21,6 +21,13 @@ describe("detectRecurring", () => {
     expect(out.find((c) => c.key === "netflix")!.nextDate.toISOString().slice(0, 10)).toBe("2026-11-09");
   });
 
+  it("reports the account of the latest charge", () => {
+    const now = new Date("2026-06-20");
+    const t = (d: string, accountId: string) => ({ key: "netflix", label: "Netflix", date: new Date(d), amountCents: 1599, accountId });
+    const [c] = detectRecurring([t("2026-03-15", "old"), t("2026-04-15", "old"), t("2026-05-15", "card")], now);
+    expect(c.accountId).toBe("card");
+  });
+
   it("normalizes merchant keys", () => expect(merchantKey("SPOTIFY USA #1234")).toBe("spotify usa"));
 });
 

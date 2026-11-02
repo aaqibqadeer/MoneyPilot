@@ -147,22 +147,25 @@ export async function securityOverview(userId: string, currentHash: string | nul
 export async function billsOverview(userId: string) {
   const db = repos(userId);
   const now = new Date();
-  const [bills, txns] = await Promise.all([
+  const [bills, txns, accounts] = await Promise.all([
     db.bills.find({ dueDate: { $gte: new Date(now.getTime() - 60 * 86400000) } }, { sort: { dueDate: 1 }, limit: 300 }),
     db.transactions.find(
       { deletedAt: { $exists: false }, pending: false, amountCents: { $gt: 0 }, date: { $gte: new Date(now.getTime() - 400 * 86400000) }, category: { $nin: ["TRANSFER_OUT", "LOAN_PAYMENTS"] } },
-      { projection: { name: 1, merchant: 1, description: 1, date: 1, amountCents: 1 }, limit: 5000 },
+      { projection: { name: 1, merchant: 1, description: 1, date: 1, amountCents: 1, accountId: 1 }, limit: 5000 },
     ),
+    db.accounts.find({}, { projection: { name: 1, mask: 1, archivedAt: 1 } }),
   ]);
+  /** "Rewards Card •••4242", plus "(archived)" for a removed bank's account. */
+  const accountNames = Object.fromEntries(accounts.map((a) => [a._id, `${a.name}${a.mask ? ` •••${a.mask}` : ""}${a.archivedAt ? " (archived)" : ""}`]));
   const tracked = new Set(bills.map((b) => merchantKey(b.name)));
   const recurring = detectRecurring(
     txns.map((t) => {
       const label = t.description ?? t.merchant ?? t.name;
-      return { key: merchantKey(t.merchant ?? t.name), label, date: t.date, amountCents: t.amountCents };
+      return { key: merchantKey(t.merchant ?? t.name), label, date: t.date, amountCents: t.amountCents, accountId: t.accountId };
     }),
     now,
   ).filter((c) => !tracked.has(c.key) && !tracked.has(merchantKey(c.name)));
-  return { bills, recurring };
+  return { bills, recurring, accountNames };
 }
 
 /** Claims not yet settled, for the dashboard card. */
