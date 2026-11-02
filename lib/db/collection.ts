@@ -34,6 +34,8 @@ export interface Coll<T extends { _id: string }> {
   insertMany(docs: T[]): Promise<void>;
   updateOne(filter: Filter, update: Update, opts?: { upsert?: boolean }): Promise<UpdateResult>;
   updateMany(filter: Filter, update: Update): Promise<UpdateResult>;
+  /** Many single-doc updates in one round trip (Mongo bulkWrite). */
+  bulkUpdate(updates: { filter: Filter; update: Update }[]): Promise<number>;
   deleteOne(filter: Filter): Promise<number>;
   deleteMany(filter: Filter): Promise<number>;
   countDocuments(filter: Filter): Promise<number>;

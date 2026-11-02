@@ -4,7 +4,6 @@ import { PageHeader } from "./page-header";
 
 const COPY: Record<string, string> = {
   "/bills": "Card due dates, manual bills and detected recurring charges in list and calendar views.",
-  "/tags": "Create tags with colours and parents, and rules that tag new transactions automatically.",
   "/claims": "Track insurance claims, reimbursements and refunds from draft to paid.",
   "/documents": "Upload statements, receipts and letters; review extracted data before importing.",
   "/insights": "Monthly reports, category trends, cash flow and merchant drill-downs.",

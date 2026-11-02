@@ -43,6 +43,8 @@ export function scopedRepo<C extends Scoped>(name: C, userId: string) {
     updateOne: async (filter: Filter, u: Update, o?: { upsert?: boolean }) =>
       c.updateOne(f(filter), o?.upsert ? withInsertDefaults(noUserChange(u), userId) : noUserChange(u), o),
     updateMany: async (filter: Filter, u: Update) => c.updateMany(f(filter), noUserChange(u)),
+    bulkUpdate: async (updates: { filter: Filter; update: Update }[]) =>
+      c.bulkUpdate(updates.map((x) => ({ filter: f(x.filter), update: noUserChange(x.update) }))),
     deleteOne: (filter: Filter) => c.deleteOne(f(filter)),
     deleteMany: (filter: Filter) => c.deleteMany(f(filter)),
     /** Pipeline always starts with a userId $match. */
