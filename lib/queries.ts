@@ -7,7 +7,7 @@ import { detectRecurring, merchantKey } from "@/lib/bills/recurring";
 export async function accountsOverview(userId: string) {
   const db = repos(userId);
   const [items, accounts, liabilities] = await Promise.all([
-    db.items.find({}, { sort: { createdAt: 1 } }),
+    db.items.find({}, { sort: { archivedAt: 1, createdAt: 1 } }),
     db.accounts.find({}, { sort: { name: 1 } }),
     db.liabilities.find({}),
   ]);
@@ -15,6 +15,7 @@ export async function accountsOverview(userId: string) {
     _id: i._id,
     institutionName: i.institutionName,
     status: i.status,
+    archivedAt: i.archivedAt,
     error: i.error,
     lastSyncedAt: i.lastSyncedAt,
     accounts: accounts
@@ -60,6 +61,7 @@ export async function dashboardSummary(userId: string) {
   const in30 = new Date(now.getTime() + 30 * 86400000);
   const [balances, spend, topTags, upcoming, recent, items] = await Promise.all([
     db.accounts.aggregate<{ _id: string; total: number; limit: number }>([
+      { $match: { archivedAt: { $exists: false } } },
       { $group: { _id: "$type", total: { $sum: { $ifNull: ["$currentCents", 0] } }, limit: { $sum: { $ifNull: ["$limitCents", 0] } } } },
     ]),
     db.transactions.aggregate<{ _id: string; total: number }>([
@@ -75,7 +77,7 @@ export async function dashboardSummary(userId: string) {
     ]),
     db.bills.find({ status: { $ne: "paid" }, dueDate: { $gte: new Date(now.getTime() - 86400000), $lte: in30 } }, { sort: { dueDate: 1 }, limit: 6 }),
     db.transactions.find({ deletedAt: { $exists: false } }, { sort: { date: -1 }, limit: 6, projection: { raw: 0 } }),
-    db.items.find({}, { sort: { lastSyncedAt: -1 } }),
+    db.items.find({ status: { $ne: "archived" } }, { sort: { lastSyncedAt: -1 } }),
   ]);
   const tags = await db.tags.find({ _id: { $in: topTags.map((t) => t._id) } });
   const dep = balances.find((b) => b._id === "depository");

@@ -31,7 +31,7 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
         <Input name="q" defaultValue={q} placeholder="Search name, merchant, notes…" className="sm:max-w-sm" />
         <select name="account" defaultValue={accountId ?? ""} className="border-input bg-background h-9 rounded-md border px-3 text-sm">
           <option value="">All accounts</option>
-          {accounts.map((a) => <option key={a._id} value={a._id}>{a.name}{a.mask ? ` •••${a.mask}` : ""}</option>)}
+          {accounts.map((a) => <option key={a._id} value={a._id}>{a.name}{a.mask ? ` •••${a.mask}` : ""}{a.archivedAt ? " (archived)" : ""}</option>)}
         </select>
         <select name="tag" defaultValue={tagId ?? ""} className="border-input bg-background h-9 rounded-md border px-3 text-sm">
           <option value="">All tags</option>

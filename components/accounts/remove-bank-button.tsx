@@ -21,7 +21,7 @@ export function RemoveBankButton({ itemId, name }: { itemId: string; name: strin
         <DialogHeader>
           <DialogTitle>Remove {name}?</DialogTitle>
           <DialogDescription>
-            This disconnects the bank at Plaid and deletes its accounts, synced transactions (with your notes and tags on them), card details and card due-date bills. Imported and manual transactions are kept. It can&apos;t be undone; export from Settings first if you want a copy.
+            This disconnects the bank at Plaid so it stops syncing, and moves it to Archived. Nothing is deleted: its accounts, transactions, tags, notes and bills stay fully viewable and searchable, including in chat. Balances are frozen and left out of dashboard totals. To sync it again later, connect the bank again.
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
@@ -35,7 +35,7 @@ export function RemoveBankButton({ itemId, name }: { itemId: string; name: strin
               setOpen(false);
             })}
           >
-            {pending && <Loader2 className="animate-spin" />}Remove bank
+            {pending && <Loader2 className="animate-spin" />}Disconnect and archive
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -47,6 +47,7 @@ export async function syncItem(item: Item): Promise<SyncResult> {
   const p = provider();
   const db = repos(item.userId);
   const result: SyncResult = { itemId: item._id, added: 0, modified: 0, removed: 0, liabilities: 0 };
+  if (item.status === "archived") return result;
   try {
     const token = decrypt(item.accessTokenEnc);
 
@@ -136,44 +137,41 @@ export async function syncItem(item: Item): Promise<SyncResult> {
 
 export async function syncUser(userId: string) {
   const items = await repos(userId).items.find({});
-  return Promise.all(items.filter((i) => i.accessTokenEnc !== "demo").map(syncItem));
+  return Promise.all(items.filter((i) => i.accessTokenEnc !== "demo" && i.status !== "archived").map(syncItem));
 }
 
-/** Provider errors that mean the connection is already gone, so local removal can proceed. */
+/** Provider errors that mean the connection is already gone, so archiving can proceed. */
 const GONE = new Set(["ITEM_NOT_FOUND", "INVALID_ACCESS_TOKEN"]);
 
 /**
- * User-initiated "Remove bank": revokes the connection at Plaid (item/remove), then deletes
- * the item, its accounts, synced transactions, liabilities and derived bills. Imported or
- * manual transactions on those accounts are kept (accountId unset). Not undoable.
+ * User-initiated "Remove bank": revokes the connection at Plaid (item/remove) and archives it.
+ * Nothing is deleted: accounts, transactions, liabilities and bills stay viewable and searchable;
+ * the item stops syncing and its balances are left out of totals.
  */
-export async function removeItem(userId: string, itemId: string) {
+export async function archiveItem(userId: string, itemId: string) {
   const db = repos(userId);
   const item = await db.items.findOne({ _id: itemId });
   if (!item) throw new ProviderError("Bank connection not found");
+  if (item.status === "archived") throw new ProviderError("This bank is already archived");
   const p = getBankProvider();
-  if (p && item.accessTokenEnc !== "demo") {
+  if (p && item.accessTokenEnc && item.accessTokenEnc !== "demo") {
     try {
       await p.removeItem(decrypt(item.accessTokenEnc));
     } catch (e) {
       if (!(e instanceof ProviderError && e.code && GONE.has(e.code))) throw e;
     }
   }
-  const accountIds = (await db.accounts.find({ itemId }, { projection: { _id: 1 } })).map((a) => a._id);
-  const inAccounts = { accountId: { $in: accountIds } };
-  const txns = await db.transactions.deleteMany({ ...inAccounts, source: "plaid" });
-  await db.transactions.updateMany(inAccounts, { $unset: { accountId: "" } });
-  await db.liabilities.deleteMany(inAccounts);
-  await db.bills.deleteMany({ ...inAccounts, source: "liability" });
-  await db.accounts.deleteMany({ itemId });
-  await db.items.deleteOne({ _id: itemId });
-  await db.auditLog.insert({ action: "bank.remove", detail: { institution: item.institutionName, accounts: accountIds.length, transactions: txns } });
-  return { institution: item.institutionName, transactions: txns };
+  const now = new Date();
+  // The token is revoked, so drop it and the cursor; nothing can sync this item again.
+  await db.items.updateOne({ _id: itemId }, { $set: { status: "archived", archivedAt: now, accessTokenEnc: "" }, $unset: { cursor: "", error: "" } });
+  await db.accounts.updateMany({ itemId }, { $set: { archivedAt: now } });
+  await db.auditLog.insert({ action: "bank.archive", detail: { institution: item.institutionName } });
+  return { institution: item.institutionName };
 }
 
 /** Cron: every item for every user, sequentially to stay gentle on rate limits. */
 export async function syncAllItems() {
-  const items = await collection("items").find({ accessTokenEnc: { $ne: "demo" } });
+  const items = await collection("items").find({ accessTokenEnc: { $ne: "demo" }, status: { $ne: "archived" } });
   const out: SyncResult[] = [];
   for (const i of items) out.push(await syncItem(i));
   return out;
@@ -181,7 +179,7 @@ export async function syncAllItems() {
 
 export async function updateLinkToken(userId: string, itemId: string) {
   const item = await repos(userId).items.byId(itemId);
-  if (!item) throw new ProviderError("Connection not found");
+  if (!item || item.status === "archived") throw new ProviderError("Connection not found");
   return provider().createLinkToken(userId, { accessToken: decrypt(item.accessTokenEnc) });
 }
 
@@ -189,7 +187,7 @@ export async function updateLinkToken(userId: string, itemId: string) {
 export async function handlePlaidWebhook(body: { webhook_type?: string; webhook_code?: string; item_id?: string; error?: { error_message?: string } }) {
   if (!body.item_id) return;
   const item = await collection("items").findOne({ providerItemId: body.item_id });
-  if (!item) return;
+  if (!item || item.status === "archived") return;
   const items = repos(item.userId).items;
   const key = `${body.webhook_type}:${body.webhook_code}`;
   if (key === "TRANSACTIONS:SYNC_UPDATES_AVAILABLE" || key === "TRANSACTIONS:DEFAULT_UPDATE" || key === "LIABILITIES:DEFAULT_UPDATE") {

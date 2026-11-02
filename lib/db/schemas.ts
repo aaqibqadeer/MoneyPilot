@@ -60,9 +60,11 @@ export const itemSchema = z.object({
   institutionId: z.string().optional(),
   institutionName: z.string().default("Bank"),
   cursor: z.string().optional(),
-  status: z.enum(["ok", "needs_reauth", "error"]).default("ok"),
+  status: z.enum(["ok", "needs_reauth", "error", "archived"]).default("ok"),
   error: z.string().optional(),
   lastSyncedAt: date.optional(),
+  /** Set when the user removed the bank: disconnected at Plaid, data kept read-only. */
+  archivedAt: date.optional(),
 });
 
 export const accountSchema = z.object({
@@ -78,6 +80,8 @@ export const accountSchema = z.object({
   availableCents: cents.optional(),
   limitCents: cents.optional(),
   currency: z.string().default("USD"),
+  /** Copied from the item on archive; balances are frozen and left out of totals. */
+  archivedAt: date.optional(),
 });
 
 export const transactionSchema = z.object({

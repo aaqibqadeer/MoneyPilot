@@ -1,4 +1,5 @@
-import { AlertTriangle, CheckCircle2, CreditCard, Landmark } from "lucide-react";
+import Link from "next/link";
+import { Archive, AlertTriangle, CheckCircle2, CreditCard, Landmark } from "lucide-react";
 import { PlaidLinkButton, SyncNowButton } from "@/components/accounts/plaid-link-button";
 import { RemoveBankButton } from "@/components/accounts/remove-bank-button";
 import { EmptyState } from "@/components/shell/empty-state";
@@ -23,7 +24,7 @@ export default async function AccountsPage() {
   return (
     <>
       <PageHeader title="Accounts" description={`Bank connections via Plaid (${env.PLAID_ENV}).`}>
-        {items.length > 0 && <SyncNowButton disabled={!canLink} />}
+        {items.some((i) => i.status !== "archived") && <SyncNowButton disabled={!canLink} />}
         <PlaidLinkButton production={production} disabled={!canLink} />
       </PageHeader>
 
@@ -46,23 +47,29 @@ export default async function AccountsPage() {
       ) : (
         <div className="space-y-6">
           {items.map((item) => (
-            <Card key={item._id}>
+            <Card key={item._id} className={item.status === "archived" ? "opacity-80" : undefined}>
               <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2">
                 <div>
                   <CardTitle className="flex items-center gap-2">
                     {item.institutionName}
-                    {item.status === "ok" ? (
+                    {item.status === "archived" ? (
+                      <Badge variant="outline" className="gap-1"><Archive className="size-3" /> Archived</Badge>
+                    ) : item.status === "ok" ? (
                       <Badge variant="secondary" className="gap-1"><CheckCircle2 className="text-success size-3" /> Healthy</Badge>
                     ) : (
                       <Badge variant="destructive">{item.status === "needs_reauth" ? "Needs re-auth" : "Error"}</Badge>
                     )}
                   </CardTitle>
-                  <p className="text-muted-foreground mt-1 text-xs">Last synced {relative(item.lastSyncedAt)}</p>
+                  <p className="text-muted-foreground mt-1 text-xs">
+                    {item.archivedAt
+                      ? `Disconnected ${shortDate(item.archivedAt)}. History kept; balances as of last sync ${relative(item.lastSyncedAt)}.`
+                      : `Last synced ${relative(item.lastSyncedAt)}`}
+                  </p>
                   {item.error && <p className="text-destructive mt-1 text-xs">{item.error}</p>}
                 </div>
                 <div className="flex items-center gap-2">
-                  {item.status !== "ok" && canLink && <PlaidLinkButton itemId={item._id} />}
-                  <RemoveBankButton itemId={item._id} name={item.institutionName} />
+                  {item.status !== "ok" && item.status !== "archived" && canLink && <PlaidLinkButton itemId={item._id} />}
+                  {item.status !== "archived" && <RemoveBankButton itemId={item._id} name={item.institutionName} />}
                 </div>
               </CardHeader>
               <CardContent className="divide-y">
@@ -76,7 +83,7 @@ export default async function AccountsPage() {
                         </div>
                         <div>
                           <p className="text-sm font-medium">{a.name} {a.mask && <span className="text-muted-foreground">•••{a.mask}</span>}</p>
-                          <p className="text-muted-foreground text-xs capitalize">{a.subtype ?? a.type}</p>
+                          <p className="text-muted-foreground text-xs"><span className="capitalize">{a.subtype ?? a.type}</span> · <Link href={`/transactions?account=${a._id}`} className="underline-offset-2 hover:underline">Transactions</Link></p>
                         </div>
                       </div>
                       <div className="text-left sm:text-right">
