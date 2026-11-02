@@ -3,6 +3,7 @@ import { decrypt, encrypt } from "@/lib/crypto";
 import { collection } from "@/lib/db/client";
 import { repos } from "@/lib/db/repos";
 import type { Item } from "@/lib/db/schemas";
+import { autoTagNew } from "@/lib/autotag";
 import { planSync } from "./merge";
 import { getBankProvider } from "./plaid";
 import { ProviderError } from "./types";
@@ -37,6 +38,7 @@ export interface SyncResult {
   modified: number;
   removed: number;
   liabilities: number;
+  autoTagged?: number;
   error?: string;
 }
 
@@ -84,6 +86,16 @@ export async function syncItem(item: Item): Promise<SyncResult> {
     }
     if (plan.deletes.length) await db.transactions.deleteMany({ providerTransactionId: { $in: plan.deletes } });
     Object.assign(result, { added: page.added.length, modified: page.modified.length, removed: page.removed.length });
+
+    // 2b. tag rules on new transactions (Phase 7), as one undoable change; never fails the sync
+    if (page.added.length) {
+      try {
+        const fresh = await db.transactions.find({ providerTransactionId: { $in: page.added.map((t) => t.providerTransactionId) } }, { projection: { _id: 1 } });
+        result.autoTagged = await autoTagNew(item.userId, fresh.map((t) => t._id));
+      } catch (e) {
+        console.error("[sync] auto-tag failed", (e as Error).message);
+      }
+    }
 
     // 3. liabilities → derived bills for due dates
     const liabilities = await p.getLiabilities(token);

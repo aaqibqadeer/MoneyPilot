@@ -2,6 +2,7 @@
 
 import { refresh } from "next/cache";
 import { z } from "zod";
+import { suggestTags } from "@/lib/autotag";
 import { requireUser } from "@/lib/auth/session";
 import { HttpError } from "@/lib/api";
 import { applyChangeSet, commit, createOp, deleteOp, rejectChangeSet, revertChangeSet, updateOp } from "@/lib/changes";
@@ -188,4 +189,17 @@ export async function markBillPaid(id: string) {
     const { name, ops } = await planBillPaid(userId, idSchema.parse(id));
     return { changeSetId: await commit(userId, `Paid ${name}`, ops) };
   });
+}
+
+/** AI tag suggestions for untagged transactions, as a proposed changeSet (applied from the card). */
+export async function suggestAutoTags() {
+  const user = await requireUser();
+  try {
+    return await suggestTags(user._id);
+  } catch (e) {
+    const status = (e as { status?: number }).status;
+    if (status && status < 600) return { error: (e as Error).message };
+    console.error("[autotag]", (e as Error).message);
+    return { error: "Auto-tagging failed. Try again." };
+  }
 }
