@@ -12,10 +12,11 @@ export const EDITABLE = {
   transactions: ["description", "notes", "tagIds"],
   tags: ["name", "color", "parentId"],
   tagRules: ["field", "match", "pattern", "tagIds", "enabled"],
+  bills: ["name", "amountCents", "dueDate", "source", "accountId", "status", "recurrence", "paidTransactionId"],
 } as const;
 export type Editable = keyof typeof EDITABLE;
 /** Collections whose docs a changeSet may create or delete (transactions are only edited). */
-const CREATABLE: Editable[] = ["tags", "tagRules"];
+const CREATABLE: Editable[] = ["tags", "tagRules", "bills"];
 export const MAX_OPS = 1000;
 
 type Values = Record<string, unknown>;

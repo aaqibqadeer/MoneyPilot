@@ -7,7 +7,7 @@ import { HttpError } from "@/lib/api";
 import { applyChangeSet, commit, createOp, deleteOp, rejectChangeSet, revertChangeSet, updateOp } from "@/lib/changes";
 import { newId } from "@/lib/db/client";
 import { repos } from "@/lib/db/repos";
-import { escapeRx, planRuleApply, planTagCreate, planTagDelete, planTransactionEdits, ruleRegex } from "@/lib/edits";
+import { escapeRx, planBillPaid, planRuleApply, planTagCreate, planTagDelete, planTransactionEdits, ruleRegex } from "@/lib/edits";
 
 /** Server actions for user edits. Every write goes through a changeSet (undoable, audited). */
 
@@ -145,4 +145,47 @@ export async function changeStatus(id: string) {
   const user = await requireUser();
   const cs = await repos(user._id).changeSets.findOne({ _id: idSchema.parse(id) });
   return cs?.status ?? null;
+}
+
+const billInput = z.object({
+  name: z.string().trim().min(1).max(80),
+  amountCents: z.number().int().min(0).max(1e10).nullable().optional(),
+  dueDate: z.coerce.date(),
+  recurrence: z.enum(["none", "weekly", "monthly", "yearly"]),
+});
+
+/** Manual bill, or a detected recurring charge the user chose to track. */
+export async function createBill(input: z.input<typeof billInput>, source: "manual" | "recurring" = "manual") {
+  return run(async (userId) => {
+    const b = billInput.parse(input);
+    const id = newId();
+    const op = createOp("bills", id, { ...b, amountCents: b.amountCents ?? null, source: z.enum(["manual", "recurring"]).parse(source), status: "upcoming" });
+    return { id, changeSetId: await commit(userId, `Added bill ${b.name}`, [op]) };
+  });
+}
+
+export async function updateBill(id: string, input: Partial<z.input<typeof billInput>>) {
+  return run(async (userId) => {
+    const i = billInput.partial().parse(input);
+    const bill = await repos(userId).bills.byId(idSchema.parse(id));
+    if (!bill) throw new HttpError(404, "Bill not found");
+    const op = updateOp("bills", bill as never, i);
+    return op ? { changeSetId: await commit(userId, `Edited bill ${i.name ?? bill.name}`, [op]) } : {};
+  });
+}
+
+export async function deleteBill(id: string) {
+  return run(async (userId) => {
+    const bill = await repos(userId).bills.byId(idSchema.parse(id));
+    if (!bill) throw new HttpError(404, "Bill not found");
+    return { changeSetId: await commit(userId, `Deleted bill ${bill.name}`, [deleteOp("bills", bill as never)]) };
+  });
+}
+
+/** Marks a bill paid; a repeating bill gets its next occurrence in the same undoable change. */
+export async function markBillPaid(id: string) {
+  return run(async (userId) => {
+    const { name, ops } = await planBillPaid(userId, idSchema.parse(id));
+    return { changeSetId: await commit(userId, `Paid ${name}`, ops) };
+  });
 }

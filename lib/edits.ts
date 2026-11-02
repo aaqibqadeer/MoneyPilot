@@ -4,6 +4,7 @@ import { createOp, deleteOp, MAX_OPS, updateOp, type ChangeOp } from "@/lib/chan
 import { newId } from "@/lib/db/client";
 import { repos } from "@/lib/db/repos";
 import type { Doc } from "@/lib/db/schemas";
+import { nextDue } from "@/lib/bills/recurring";
 
 /** Builders that turn an edit request (from the UI or chat) into changeSet ops. Nothing here writes. */
 
@@ -106,4 +107,20 @@ function hash(s: string) {
   let h = 0;
   for (const c of s) h = (h * 31 + c.charCodeAt(0)) | 0;
   return h;
+}
+
+/** Paid + (for repeating bills, unless one already exists) the next occurrence. */
+export async function planBillPaid(userId: string, billId: string): Promise<{ name: string; ops: ChangeOp[] }> {
+  const db = repos(userId);
+  const bill = await db.bills.byId(billId);
+  if (!bill) throw new HttpError(404, "Bill not found");
+  if (bill.status === "paid") throw new HttpError(409, "Already paid");
+  const ops: ChangeOp[] = [updateOp("bills", bill as unknown as Values & { _id: string }, { status: "paid" })!];
+  if (bill.recurrence !== "none" && bill.source !== "liability") {
+    const dueDate = nextDue(bill.dueDate, bill.recurrence);
+    if (!(await db.bills.findOne({ name: bill.name, dueDate }))) {
+      ops.push(createOp("bills", newId(), { name: bill.name, amountCents: bill.amountCents ?? null, dueDate, source: bill.source, accountId: bill.accountId ?? null, status: "upcoming", recurrence: bill.recurrence, paidTransactionId: null }));
+    }
+  }
+  return { name: bill.name, ops };
 }
