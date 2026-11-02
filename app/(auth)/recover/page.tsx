@@ -1,17 +1,12 @@
-import Link from "next/link";
-import { Card, CardContent } from "@/components/ui/card";
+import { redirect } from "next/navigation";
+import { RecoverForm } from "@/components/auth/recover-form";
+import { getCurrentUser } from "@/lib/auth/session";
+import { features } from "@/lib/env";
 
 export const metadata = { title: "Recover account" };
 
-/** Recovery codes and email magic links arrive with the rest of Phase 1. */
-export default function RecoverPage() {
-  return (
-    <Card>
-      <CardContent className="space-y-3 text-center text-sm">
-        <p className="font-medium">Account recovery is coming soon</p>
-        <p className="text-muted-foreground">Recovery codes and email magic links are planned for Phase 1. Until then, sign in with a synced passkey (iCloud Keychain, Google Password Manager or 1Password).</p>
-        <Link href="/login" className="underline">Back to sign in</Link>
-      </CardContent>
-    </Card>
-  );
+export default async function RecoverPage({ searchParams }: PageProps<"/recover">) {
+  if (features.demo || (await getCurrentUser())) redirect("/");
+  const { token } = await searchParams;
+  return <RecoverForm token={typeof token === "string" ? token : undefined} emailEnabled={features.email} />;
 }

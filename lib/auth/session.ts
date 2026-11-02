@@ -74,6 +74,12 @@ export const getCurrentUser = cache(async (): Promise<User | null> => {
   return collection("users").findOne({ _id: s.userId });
 });
 
+/** SHA-256 of this request's session token, to mark "this device" in Settings. */
+export async function currentTokenHash() {
+  const token = (await cookies()).get(SESSION_COOKIE)?.value;
+  return token ? sha256(token) : null;
+}
+
 /** For pages and server actions: redirect to /login when signed out. */
 export async function requireUser(): Promise<User> {
   const u = await getCurrentUser();

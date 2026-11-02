@@ -6,7 +6,7 @@ export const INDEXES: Partial<Record<CollectionName, IndexDescription[]>> = {
   users: [{ key: { email: 1 }, unique: true, sparse: true }],
   passkeys: [{ key: { credentialId: 1 }, unique: true }, { key: { userId: 1 } }],
   sessions: [{ key: { tokenHash: 1 }, unique: true }, { key: { userId: 1 } }, { key: { expiresAt: 1 }, expireAfterSeconds: 0 }],
-  recoveryCodes: [{ key: { userId: 1, codeHash: 1 } }],
+  recoveryCodes: [{ key: { userId: 1 } }, { key: { codeHash: 1 } }],
   magicLinks: [{ key: { tokenHash: 1 }, unique: true }, { key: { expiresAt: 1 }, expireAfterSeconds: 86400 }],
   authChallenges: [{ key: { expiresAt: 1 }, expireAfterSeconds: 0 }],
   rateLimits: [{ key: { expiresAt: 1 }, expireAfterSeconds: 0 }],

@@ -53,7 +53,7 @@ Passkeys only (SimpleWebAuthn), signup allowed for the first user or `ALLOW_SIGN
 | Phase | State |
 | --- | --- |
 | 0 Foundation | Done |
-| 1 Auth | Partial: passkey signup/login/logout, sessions, proxy, rate limits. TODO recovery codes, magic link, Settings→Security |
+| 1 Auth | Done: passkeys, sessions, proxy, rate limits, recovery codes, magic link (Resend REST, POST verify), Settings→Security |
 | 2 Plaid | Done (sandbox): link, sync, liabilities, bills, webhook, cron, update mode, /accounts |
 | 3 Transactions/tags | Done: list + tag filter, edit drawer, bulk tag, tags/rules page, changeSets with undo (toast, Settings→History). Rules run on demand; auto-run on sync is Phase 7 |
 | 4 Dashboard/bills | Partial: dashboard cards. TODO bills page, recurring detection, open claims |
