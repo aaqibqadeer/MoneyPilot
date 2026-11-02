@@ -179,3 +179,18 @@ export async function listDocuments(userId: string) {
 export async function listClaims(userId: string) {
   return repos(userId).claims.find({}, { sort: { updatedAt: -1 }, limit: 200 });
 }
+
+/** Chat token usage, this month and all time. */
+export async function aiUsage(userId: string) {
+  const since = new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), 1));
+  const [r] = await repos(userId).chatMessages.aggregate<{ month: { tokens: number; replies: number }[]; all: { tokens: number; replies: number }[] }>([
+    { $match: { role: "assistant" } },
+    {
+      $facet: {
+        month: [{ $match: { createdAt: { $gte: since } } }, { $group: { _id: null, tokens: { $sum: { $ifNull: ["$usage.totalTokens", 0] } }, replies: { $sum: 1 } } }],
+        all: [{ $group: { _id: null, tokens: { $sum: { $ifNull: ["$usage.totalTokens", 0] } }, replies: { $sum: 1 } } }],
+      },
+    },
+  ]);
+  return { month: r?.month[0] ?? { tokens: 0, replies: 0 }, all: r?.all[0] ?? { tokens: 0, replies: 0 } };
+}
