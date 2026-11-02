@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Wallet } from "lucide-react";
+import { LogoMark } from "@/components/brand/logo";
 import {
   Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarHeader, SidebarMenu,
   SidebarMenuButton, SidebarMenuItem, SidebarRail, useSidebar,
@@ -19,9 +19,7 @@ export function AppSidebar({ demo }: { demo: boolean }) {
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" asChild>
               <Link href="/" onClick={() => setOpenMobile(false)}>
-                <div className="bg-primary text-primary-foreground flex size-8 items-center justify-center rounded-lg">
-                  <Wallet className="size-4" />
-                </div>
+                <LogoMark className="!size-8" />
                 <div className="grid leading-tight">
                   <span className="font-semibold">MoneyPilot</span>
                   <span className="text-muted-foreground text-xs">{demo ? "Demo mode" : "Personal finance"}</span>
