@@ -1,5 +1,6 @@
 import "server-only";
 import { repos } from "@/lib/db/repos";
+import { detectRecurring, merchantKey } from "@/lib/bills/recurring";
 
 /** Server-side data for pages. All aggregation runs in MongoDB (or mingo in demo mode). */
 
@@ -72,7 +73,7 @@ export async function dashboardSummary(userId: string) {
       { $sort: { total: -1 } },
       { $limit: 6 },
     ]),
-    db.bills.find({ dueDate: { $gte: new Date(now.getTime() - 86400000), $lte: in30 } }, { sort: { dueDate: 1 }, limit: 6 }),
+    db.bills.find({ status: { $ne: "paid" }, dueDate: { $gte: new Date(now.getTime() - 86400000), $lte: in30 } }, { sort: { dueDate: 1 }, limit: 6 }),
     db.transactions.find({ deletedAt: { $exists: false } }, { sort: { date: -1 }, limit: 6, projection: { raw: 0 } }),
     db.items.find({}, { sort: { lastSyncedAt: -1 } }),
   ]);
@@ -137,4 +138,35 @@ export async function securityOverview(userId: string, currentHash: string | nul
     sessions: sessions.map((s) => ({ _id: s._id, userAgent: s.userAgent, lastSeenAt: s.lastSeenAt.toISOString(), current: s.tokenHash === currentHash })),
     recovery: { total, left },
   };
+}
+
+/** Bills page: every bill from 60 days back, plus recurring charges not tracked yet. */
+export async function billsOverview(userId: string) {
+  const db = repos(userId);
+  const now = new Date();
+  const [bills, txns] = await Promise.all([
+    db.bills.find({ dueDate: { $gte: new Date(now.getTime() - 60 * 86400000) } }, { sort: { dueDate: 1 }, limit: 300 }),
+    db.transactions.find(
+      { deletedAt: { $exists: false }, pending: false, amountCents: { $gt: 0 }, date: { $gte: new Date(now.getTime() - 400 * 86400000) }, category: { $nin: ["TRANSFER_OUT", "LOAN_PAYMENTS"] } },
+      { projection: { name: 1, merchant: 1, description: 1, date: 1, amountCents: 1 }, limit: 5000 },
+    ),
+  ]);
+  const tracked = new Set(bills.map((b) => merchantKey(b.name)));
+  const recurring = detectRecurring(
+    txns.map((t) => {
+      const label = t.description ?? t.merchant ?? t.name;
+      return { key: merchantKey(t.merchant ?? t.name), label, date: t.date, amountCents: t.amountCents };
+    }),
+    now,
+  ).filter((c) => !tracked.has(c.key) && !tracked.has(merchantKey(c.name)));
+  return { bills, recurring };
+}
+
+/** Claims not yet settled, for the dashboard card. */
+export async function openClaims(userId: string) {
+  const [r] = await repos(userId).claims.aggregate<{ n: number; claimed: number }>([
+    { $match: { status: { $in: ["draft", "submitted", "in_review", "approved"] } } },
+    { $group: { _id: null, n: { $sum: 1 }, claimed: { $sum: { $ifNull: ["$claimedCents", 0] } } } },
+  ]);
+  return { count: r?.n ?? 0, claimedCents: r?.claimed ?? 0 };
 }

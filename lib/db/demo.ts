@@ -105,6 +105,12 @@ async function seed(): Promise<User> {
     if (day.getDate() === 1 || day.getDate() === 15) {
       txns.push({ source: "plaid", accountId: checking._id, providerTransactionId: `demo-pay-${d}`, date: day, amountCents: -310000, currency: "USD", name: "ACME CORP PAYROLL", merchant: "Acme Corp", category: "INCOME", tagIds: [tags[6]._id], pending: false });
     }
+    if (day.getDate() === 9) {
+      txns.push({ source: "plaid", accountId: card._id, providerTransactionId: `demo-hulu-${d}`, date: day, amountCents: 1799, currency: "USD", name: "HULU 877-8244858", merchant: "Hulu", category: "ENTERTAINMENT", tagIds: [tags[4]._id], pending: false });
+    }
+    if (day.getDate() === 18) {
+      txns.push({ source: "plaid", accountId: checking._id, providerTransactionId: `demo-net-${d}`, date: day, amountCents: 7999, currency: "USD", name: "COMCAST XFINITY", merchant: "Comcast", category: "RENT_AND_UTILITIES", tagIds: [], pending: false });
+    }
     if (day.getDate() === 3) {
       txns.push({ source: "plaid", accountId: checking._id, providerTransactionId: `demo-rent-${d}`, date: day, amountCents: 185000, currency: "USD", name: "OAKWOOD APARTMENTS RENT", merchant: "Oakwood Apartments", category: "RENT_AND_UTILITIES", tagIds: [], pending: false });
     }
@@ -115,7 +121,7 @@ async function seed(): Promise<User> {
   await db.liabilities.insert({ accountId: card._id, kind: "credit", lastStatementBalanceCents: 162040, minimumPaymentCents: 3500, nextPaymentDueDate: due, aprPercent: 24.99 });
   await db.bills.insertMany([
     { name: "Rewards Card payment", amountCents: 162040, dueDate: due, source: "liability", accountId: card._id, status: "upcoming", recurrence: "monthly" },
-    { name: "Rent", amountCents: 185000, dueDate: new Date(now.getFullYear(), now.getMonth() + 1, 3), source: "manual", status: "upcoming", recurrence: "monthly" },
+    { name: "Oakwood Apartments", amountCents: 185000, dueDate: new Date(now.getFullYear(), now.getMonth() + 1, 3), source: "manual", status: "upcoming", recurrence: "monthly" },
   ]);
   void savings;
   return user;

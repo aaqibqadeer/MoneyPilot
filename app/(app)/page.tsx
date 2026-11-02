@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireUser } from "@/lib/auth/session";
 import { money, relative, shortDate } from "@/lib/format";
-import { dashboardSummary } from "@/lib/queries";
+import { dashboardSummary, openClaims } from "@/lib/queries";
 
 export const metadata = { title: "Dashboard" };
 
@@ -28,7 +28,7 @@ function Stat({ title, value, sub, icon: Icon }: { title: string; value: string;
 
 export default async function Dashboard() {
   const user = await requireUser();
-  const s = await dashboardSummary(user._id);
+  const [s, claims] = await Promise.all([dashboardSummary(user._id), openClaims(user._id)]);
   const cur = user.currency;
   if (!s.hasItems) {
     return (
@@ -57,7 +57,9 @@ export default async function Dashboard() {
           icon={delta !== null && delta > 0 ? ArrowUpRight : ArrowDownRight}
           sub={`Last month ${money(s.spendLastMonth, cur)}${delta !== null ? ` · ${delta > 0 ? "+" : ""}${delta}% so far` : ""}`}
         />
-        <Stat title="Open claims" value="—" icon={ShieldCheck} sub="Claims arrive in Phase 8" />
+        <Link href="/claims" className="contents">
+          <Stat title="Open claims" value={String(claims.count)} icon={ShieldCheck} sub={claims.count ? `${money(claims.claimedCents, cur)} claimed` : "Nothing pending"} />
+        </Link>
       </div>
       <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2">
@@ -67,7 +69,10 @@ export default async function Dashboard() {
           </CardContent>
         </Card>
         <Card>
-          <CardHeader><CardTitle className="flex items-center gap-2 text-base"><CalendarClock className="size-4" /> Due in 30 days</CardTitle></CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle className="flex items-center gap-2 text-base"><CalendarClock className="size-4" /> Due in 30 days</CardTitle>
+            <Button asChild variant="ghost" size="sm"><Link href="/bills">All bills</Link></Button>
+          </CardHeader>
           <CardContent className="space-y-3">
             {s.upcoming.length === 0 && <p className="text-muted-foreground text-sm">Nothing due.</p>}
             {s.upcoming.map((b) => (
