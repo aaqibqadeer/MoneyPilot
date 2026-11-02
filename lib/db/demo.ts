@@ -111,6 +111,12 @@ async function seed(): Promise<User> {
     if (day.getDate() === 18) {
       txns.push({ source: "plaid", accountId: checking._id, providerTransactionId: `demo-net-${d}`, date: day, amountCents: 7999, currency: "USD", name: "COMCAST XFINITY", merchant: "Comcast", category: "RENT_AND_UTILITIES", tagIds: [], pending: false });
     }
+    if (day.getDate() === 20) {
+      txns.push({ source: "plaid", accountId: checking._id, providerTransactionId: `demo-venmo-${d}`, date: day, amountCents: 4500, currency: "USD", name: "VENMO PAYMENT 1043", merchant: "Venmo", category: "TRANSFER_OUT", tagIds: [], pending: false });
+    }
+    if (day.getDate() === 5) {
+      txns.push({ source: "plaid", accountId: checking._id, providerTransactionId: `demo-rh-${d}`, date: day, amountCents: 20000, currency: "USD", name: "ROBINHOOD DEBITS", merchant: "Robinhood", category: "TRANSFER_OUT", tagIds: [], pending: false });
+    }
     if (day.getDate() === 3) {
       txns.push({ source: "plaid", accountId: checking._id, providerTransactionId: `demo-rent-${d}`, date: day, amountCents: 185000, currency: "USD", name: "OAKWOOD APARTMENTS RENT", merchant: "Oakwood Apartments", category: "RENT_AND_UTILITIES", tagIds: [], pending: false });
     }

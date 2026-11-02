@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Archive, AlertTriangle, CheckCircle2, CreditCard, Landmark } from "lucide-react";
+import { Archive, AlertTriangle, AppWindow, CheckCircle2, CreditCard, ExternalLink, Landmark } from "lucide-react";
 import { PlaidLinkButton, SyncNowButton } from "@/components/accounts/plaid-link-button";
 import { RemoveBankButton } from "@/components/accounts/remove-bank-button";
 import { EmptyState } from "@/components/shell/empty-state";
@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { requireUser } from "@/lib/auth/session";
+import { PLAID_PORTAL_URL } from "@/lib/bank/connected-apps";
 import { env, features } from "@/lib/env";
 import { money, relative, shortDate } from "@/lib/format";
 import { accountsOverview } from "@/lib/queries";
@@ -84,6 +85,16 @@ export default async function AccountsPage() {
                         <div>
                           <p className="text-sm font-medium">{a.name} {a.mask && <span className="text-muted-foreground">•••{a.mask}</span>}</p>
                           <p className="text-muted-foreground text-xs"><span className="capitalize">{a.subtype ?? a.type}</span> · <Link href={`/transactions?account=${a._id}`} className="underline-offset-2 hover:underline">Transactions</Link></p>
+                          {a.apps.length > 0 && (
+                            <div className="mt-1 flex flex-wrap items-center gap-1" aria-label="Apps seen in transactions">
+                              <span className="text-muted-foreground text-xs">Apps seen:</span>
+                              {a.apps.map((app) => (
+                                <Badge key={app.id} variant="outline" className="text-xs font-normal" title={`${app.count} transaction${app.count === 1 ? "" : "s"}, last ${shortDate(app.lastSeen)}`}>
+                                  {app.name}
+                                </Badge>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       </div>
                       <div className="text-left sm:text-right">
@@ -106,6 +117,21 @@ export default async function AccountsPage() {
                     </div>
                   );
                 })}
+                <div className="text-muted-foreground flex gap-2 pt-3 text-xs">
+                  <AppWindow className="mt-0.5 size-3.5 shrink-0" />
+                  <p>
+                    Apps above are spotted in transactions; apps that only read data (like Credit Karma) leave no trace. See and revoke every app with access in{" "}
+                    <a href={PLAID_PORTAL_URL} target="_blank" rel="noopener noreferrer" className="text-foreground inline-flex items-center gap-0.5 underline underline-offset-2">
+                      Plaid Portal<ExternalLink className="size-3" />
+                    </a>{" "}
+                    and on {item.access.url ? (
+                      <a href={item.access.url} target="_blank" rel="noopener noreferrer" className="text-foreground inline-flex items-center gap-0.5 underline underline-offset-2">
+                        {item.institutionName}<ExternalLink className="size-3" />
+                      </a>
+                    ) : `${item.institutionName}'s site`}{" "}
+                    ({item.access.where}).
+                  </p>
+                </div>
               </CardContent>
             </Card>
           ))}

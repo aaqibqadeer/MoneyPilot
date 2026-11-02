@@ -1,16 +1,19 @@
 import "server-only";
 import { repos } from "@/lib/db/repos";
 import { detectRecurring, merchantKey } from "@/lib/bills/recurring";
+import { APP_QUERY_SOURCE, bankAccessGuide, detectApps } from "@/lib/bank/connected-apps";
 
 /** Server-side data for pages. All aggregation runs in MongoDB (or mingo in demo mode). */
 
 export async function accountsOverview(userId: string) {
   const db = repos(userId);
-  const [items, accounts, liabilities] = await Promise.all([
+  const [items, accounts, liabilities, appTxns] = await Promise.all([
     db.items.find({}, { sort: { archivedAt: 1, createdAt: 1 } }),
     db.accounts.find({}, { sort: { name: 1 } }),
     db.liabilities.find({}),
+    appTransactions(userId),
   ]);
+  const apps = detectApps(appTxns);
   return items.map((i) => ({
     _id: i._id,
     institutionName: i.institutionName,
@@ -18,10 +21,20 @@ export async function accountsOverview(userId: string) {
     archivedAt: i.archivedAt,
     error: i.error,
     lastSyncedAt: i.lastSyncedAt,
+    access: bankAccessGuide(i.institutionName),
     accounts: accounts
       .filter((a) => a.itemId === i._id)
-      .map((a) => ({ ...a, liability: liabilities.find((l) => l.accountId === a._id) })),
+      .map((a) => ({ ...a, liability: liabilities.find((l) => l.accountId === a._id), apps: apps[a._id] ?? [] })),
   }));
+}
+
+/** Only transactions whose name/merchant mentions a known money app (see lib/bank/connected-apps.ts). */
+export function appTransactions(userId: string) {
+  const re = { $regex: APP_QUERY_SOURCE, $options: "i" };
+  return repos(userId).transactions.find(
+    { deletedAt: { $exists: false }, $or: [{ name: re }, { merchant: re }] },
+    { projection: { accountId: 1, name: 1, merchant: 1, date: 1 }, sort: { date: -1 }, limit: 2000 },
+  );
 }
 
 export interface TxnQuery {
