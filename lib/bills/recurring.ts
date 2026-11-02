@@ -6,6 +6,7 @@ export interface RecurringTxn {
   label: string;
   date: Date;
   amountCents: number;
+  accountId?: string;
 }
 export interface RecurringCandidate {
   key: string;
@@ -15,6 +16,8 @@ export interface RecurringCandidate {
   count: number;
   lastDate: Date;
   nextDate: Date;
+  /** Account of the latest charge. */
+  accountId?: string;
 }
 
 const DAY = 86400000;
@@ -66,7 +69,7 @@ export function detectRecurring(txns: RecurringTxn[], now = new Date()): Recurri
     if (rows.some((r) => Math.abs(r.amountCents - amount) > amount * 0.2)) continue;
     const last = rows[rows.length - 1];
     if (now.getTime() - last.date.getTime() > nominal * 1.5 * DAY) continue;
-    out.push({ key, name: last.label, recurrence, amountCents: amount, count: rows.length, lastDate: last.date, nextDate: addPeriod(last.date, recurrence) });
+    out.push({ key, name: last.label, recurrence, amountCents: amount, count: rows.length, lastDate: last.date, nextDate: addPeriod(last.date, recurrence), accountId: last.accountId });
   }
   return out.sort((a, b) => a.nextDate.getTime() - b.nextDate.getTime());
 }

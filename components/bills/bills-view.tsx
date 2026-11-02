@@ -21,6 +21,8 @@ export interface BillRow {
   source: "liability" | "manual" | "recurring";
   status: "upcoming" | "paid" | "overdue";
   recurrence: "none" | "weekly" | "monthly" | "yearly";
+  accountId?: string;
+  account?: string;
 }
 export interface RecurringRow {
   key: string;
@@ -29,6 +31,8 @@ export interface RecurringRow {
   amountCents: number;
   count: number;
   nextDate: string;
+  accountId?: string;
+  account?: string;
 }
 
 const select = "border-input bg-background h-9 rounded-md border px-2 text-sm";
@@ -84,6 +88,7 @@ function BillItem({ b, currency }: { b: BillRow; currency: string }) {
         <p className="text-muted-foreground flex flex-wrap items-center gap-1.5 text-xs">
           <span className={cn(st === "overdue" && "text-destructive")}>{shortDate(b.dueDate)}</span>
           <span>· {SOURCE[b.source]}</span>
+          {b.account && <span>· {b.account}</span>}
           {b.recurrence !== "none" && <span className="inline-flex items-center gap-0.5">· <Repeat className="size-3" /> {b.recurrence}</span>}
         </p>
       </div>
@@ -162,12 +167,12 @@ function Recurring({ rows, currency }: { rows: RecurringRow[]; currency: string 
 
 function RecurringItem({ r, currency }: { r: RecurringRow; currency: string }) {
   const [pending, start] = useTransition();
-  const track = () => start(async () => void (await runAction(createBill({ name: r.name, amountCents: r.amountCents, dueDate: r.nextDate, recurrence: r.recurrence }, "recurring"), `Tracking ${r.name}`)));
+  const track = () => start(async () => void (await runAction(createBill({ name: r.name, amountCents: r.amountCents, dueDate: r.nextDate, recurrence: r.recurrence, ...(r.accountId ? { accountId: r.accountId } : {}) }, "recurring"), `Tracking ${r.name}`)));
   return (
     <li className="flex items-center gap-3 py-3">
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium">{r.name}</p>
-        <p className="text-muted-foreground text-xs first-letter:uppercase">{r.recurrence} · {r.count} charges · next ~{shortDate(r.nextDate)}</p>
+        <p className="text-muted-foreground text-xs first-letter:uppercase">{r.recurrence} · {r.count} charges · next ~{shortDate(r.nextDate)}{r.account && ` · ${r.account}`}</p>
       </div>
       <span className="tabular text-sm">{money(r.amountCents, currency)}</span>
       <Button size="sm" variant="outline" disabled={pending} onClick={track}>{pending ? <Loader2 className="animate-spin" /> : <Plus />}Track</Button>
