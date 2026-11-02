@@ -56,11 +56,12 @@ Passkeys only (SimpleWebAuthn), signup allowed for the first user or `ALLOW_SIGN
 | 0 Foundation | Done |
 | 1 Auth | Done: passkeys, sessions, proxy, rate limits, recovery codes, magic link (Resend REST, POST verify), Settings→Security |
 | 2 Plaid | Done (sandbox): link, sync, liabilities, bills, webhook, cron, update mode, /accounts |
-| 3 Transactions/tags | Done: list + tag filter, edit drawer, bulk tag, tags/rules page, changeSets with undo (toast, Settings→History). Rules run on demand; auto-run on sync is Phase 7 |
+| 3 Transactions/tags | Done: list + tag filter, edit drawer, bulk tag, tags/rules page, changeSets with undo (toast, Settings→History) |
 | 4 Dashboard/bills | Done: dashboard cards (open claims), /bills list + calendar, manual bills, mark paid (next occurrence), recurring detection (`lib/bills/recurring.ts`) → track as bill |
 | 5 Chat | Done: read tools, sessions, streaming, charts, Mermaid |
 | 6 Chat edits | Done: proposeChanges + diff card, apply/discard/undo |
-| 7–10 | Not started (routes and schemas stubbed) |
+| 7 Auto-tagging | Done: `lib/autotag.ts`: enabled rules run on synced new txns (applied `autotag` changeSet); /tags "Suggest tags with AI" (batches of 50, Output.object, confidence ≥0.6) → proposed changeSet grouped by tag; edit drawer offers "always tag" rule |
+| 8–10 | Not started (routes and schemas stubbed) |
 
 ## 12. Env
 See `.env.example`. None required. No `MONGODB_URI` = demo mode (in-memory seeded data, auth bypassed). `ENCRYPTION_KEY` required in production to store Plaid tokens.

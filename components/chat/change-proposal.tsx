@@ -14,6 +14,8 @@ export interface ProposalOutput {
   newTags?: string[];
   rules?: string[];
   preview?: { date: string | null; description: string; amount: number | null; changes: string[] }[];
+  /** Auto-tag previews group by tag instead of listing transactions. */
+  groups?: { tag: string; isNew: boolean; count: number; confidence: number; examples: string[] }[];
   error?: string;
 }
 
@@ -21,7 +23,7 @@ type Status = "proposed" | "applied" | "rejected" | "reverted";
 const usd = (n: number | null) => (n === null ? "" : `${n < 0 ? "+" : ""}${Math.abs(n).toLocaleString("en-US", { style: "currency", currency: "USD" })}`);
 
 /** Diff card for a proposeChanges result: Apply / Discard, then Undo. Status is read live so reloaded chats stay correct. */
-export function ChangeProposal({ out }: { out: ProposalOutput }) {
+export function ChangeProposal({ out, onSettled }: { out: ProposalOutput; onSettled?: () => void }) {
   const [status, setStatus] = useState<Status | null>(null);
   const [pending, start] = useTransition();
   const id = out.changeSetId;
@@ -41,6 +43,7 @@ export function ChangeProposal({ out }: { out: ProposalOutput }) {
       if (!r.ok) return void toast.error(r.error);
       setStatus(next);
       toast.success(msg);
+      onSettled?.();
     });
 
   const c = out.counts;
@@ -59,6 +62,20 @@ export function ChangeProposal({ out }: { out: ProposalOutput }) {
         <div className="space-y-0.5 border-b px-3 py-2 text-xs">
           {out.newTags?.map((t) => <p key={t}>New tag <span className="font-medium">{t}</span></p>)}
           {out.rules?.map((r) => <p key={r}>New rule: {r}</p>)}
+        </div>
+      ) : null}
+      {out.groups?.length ? (
+        <div className="max-h-72 divide-y overflow-y-auto">
+          {out.groups.map((g) => (
+            <div key={g.tag} className="px-3 py-2 text-xs">
+              <p className="flex items-center gap-2">
+                <span className="font-medium">{g.tag}</span>
+                {g.isNew && <Badge variant="outline" className="h-4 px-1 text-[10px]">new</Badge>}
+                <span className="text-muted-foreground ml-auto">{g.count} · {Math.round(g.confidence * 100)}% sure</span>
+              </p>
+              <p className="text-muted-foreground truncate">{g.examples.join(", ")}</p>
+            </div>
+          ))}
         </div>
       ) : null}
       {out.preview?.length ? (

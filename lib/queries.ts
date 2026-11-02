@@ -100,7 +100,7 @@ export async function dashboardSummary(userId: string) {
 /** Tags with how many live transactions use each, plus the rules. */
 export async function tagsOverview(userId: string) {
   const db = repos(userId);
-  const [tags, counts, rules] = await Promise.all([
+  const [tags, counts, rules, untagged] = await Promise.all([
     db.tags.find({}, { sort: { name: 1 } }),
     db.transactions.aggregate<{ _id: string; n: number }>([
       { $match: { deletedAt: { $exists: false } } },
@@ -108,9 +108,10 @@ export async function tagsOverview(userId: string) {
       { $group: { _id: "$tagIds", n: { $sum: 1 } } },
     ]),
     db.tagRules.find({}, { sort: { createdAt: 1 } }),
+    db.transactions.count({ deletedAt: { $exists: false }, tagIds: { $size: 0 } }),
   ]);
   const n = new Map(counts.map((c) => [c._id, c.n]));
-  return { tags: tags.map((t) => ({ ...t, count: n.get(t._id) ?? 0 })), rules };
+  return { tags: tags.map((t) => ({ ...t, count: n.get(t._id) ?? 0 })), rules, untagged };
 }
 
 /** Recent changeSets for Settings → History (ops omitted, only their count). */

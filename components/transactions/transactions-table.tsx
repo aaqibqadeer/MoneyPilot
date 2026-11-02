@@ -2,7 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { Loader2, Tags, X } from "lucide-react";
-import { bulkTag, saveTransaction } from "@/app/actions/edits";
+import { bulkTag, createRule, saveTransaction } from "@/app/actions/edits";
+import { toast } from "sonner";
 import { runAction } from "@/components/changes/run-action";
 import { TagChip, TagPicker, type TagLite } from "@/components/tags/tag-picker";
 import { Badge } from "@/components/ui/badge";
@@ -101,7 +102,21 @@ function TxnEditor({ t, tags, onDone }: { t: TxnRowData; tags: TagLite[]; onDone
   const save = () =>
     start(async () => {
       const r = await runAction(saveTransaction(t._id, { description: description || null, notes: notes || null, tagIds }), "Transaction saved");
-      if (r.ok) onDone();
+      if (!r.ok) return;
+      onDone();
+      // Correction → offer a rule so it sticks next time (CLAUDE.md §9).
+      const added = tagIds.filter((id) => !t.tagIds.includes(id));
+      const who = t.merchant ?? t.name;
+      if (added.length && who) {
+        const names = added.map((id) => tags.find((x) => x._id === id)?.name).filter(Boolean).join(", ");
+        toast(`Always tag ${who} as ${names}?`, {
+          duration: 10000,
+          action: {
+            label: "Create rule",
+            onClick: () => void runAction(createRule({ field: t.merchant ? "merchant" : "name", match: t.merchant ? "equals" : "contains", pattern: who, tagIds: added }, true), `Rule added for ${who}`),
+          },
+        });
+      }
     });
 
   return (
