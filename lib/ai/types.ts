@@ -9,4 +9,6 @@ export const messageMetadataSchema = z.object({
   totalTokens: z.number().optional(),
 });
 export type MessageMetadata = z.infer<typeof messageMetadataSchema>;
+/** For validating incoming history: messages sent by useChat carry no metadata. */
+export const incomingMetadataSchema = messageMetadataSchema.optional();
 export type ChatUIMessage = UIMessage<MessageMetadata>;

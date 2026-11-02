@@ -185,7 +185,7 @@ export function readTools(userId: string) {
     }),
 
     runAnalyticsQuery: tool({
-      description: `Run a read-only MongoDB aggregation for questions the other tools can't answer. Collections: ${ANALYTICS_COLLECTIONS.join(", ")}. Amounts are integer cents (amountCents; positive = money out). Dates are ISO strings. The user filter is added automatically. Stages allowed: $match $group $sort $limit $project $addFields $unwind $count $bucket $facet $lookup and similar. Max 200 rows.`,
+      description: `Run a read-only MongoDB aggregation for questions the other tools can't answer. Collections: ${ANALYTICS_COLLECTIONS.join(", ")}. Amounts are integer cents (amountCents; positive = money out). Dates are ISO strings. transactions fields: date, amountCents, name, merchant, description, category, categoryDetailed, pending, accountId, tagIds (array of tag _ids; $lookup tags for names), deletedAt. The user filter is added automatically. Stages allowed: $match $group $sort $limit $project $addFields $unwind $count $bucket $facet $lookup and similar. Max 200 rows.`,
       inputSchema: z.object({
         collection: z.enum(ANALYTICS_COLLECTIONS),
         pipeline: z.array(z.record(z.string(), z.unknown())).max(30),

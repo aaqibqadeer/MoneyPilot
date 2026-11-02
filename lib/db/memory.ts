@@ -14,7 +14,8 @@ function rows(name: string): AnyDoc[] {
 }
 
 const clone = <T>(v: T): T => structuredClone(v);
-const opts = { collectionResolver: (n: string) => rows(n) };
+/** mingo pipelines can mutate their input (e.g. $unwind with preserveNullAndEmptyArrays), so they only see copies. */
+const opts = { collectionResolver: (n: string) => clone(rows(n)) };
 
 /** Equality fields of a filter, used to seed upserted documents. */
 function equalityFields(filter: Filter) {
@@ -105,6 +106,6 @@ export class MemoryColl<T extends { _id: string }> implements Coll<T> {
   }
 
   async aggregate<R>(pipeline: Record<string, unknown>[]): Promise<R[]> {
-    return clone(aggregate(rows(this.name), pipeline as never, opts)) as R[];
+    return aggregate(clone(rows(this.name)), pipeline as never, opts) as R[];
   }
 }
