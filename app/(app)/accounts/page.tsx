@@ -1,5 +1,6 @@
 import { AlertTriangle, CheckCircle2, CreditCard, Landmark } from "lucide-react";
 import { PlaidLinkButton, SyncNowButton } from "@/components/accounts/plaid-link-button";
+import { RemoveBankButton } from "@/components/accounts/remove-bank-button";
 import { EmptyState } from "@/components/shell/empty-state";
 import { PageHeader } from "@/components/shell/page-header";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -59,7 +60,10 @@ export default async function AccountsPage() {
                   <p className="text-muted-foreground mt-1 text-xs">Last synced {relative(item.lastSyncedAt)}</p>
                   {item.error && <p className="text-destructive mt-1 text-xs">{item.error}</p>}
                 </div>
-                {item.status !== "ok" && canLink && <PlaidLinkButton itemId={item._id} />}
+                <div className="flex items-center gap-2">
+                  {item.status !== "ok" && canLink && <PlaidLinkButton itemId={item._id} />}
+                  <RemoveBankButton itemId={item._id} name={item.institutionName} />
+                </div>
               </CardHeader>
               <CardContent className="divide-y">
                 {item.accounts.map((a) => {

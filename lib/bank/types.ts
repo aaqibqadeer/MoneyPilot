@@ -56,6 +56,8 @@ export interface BankDataProvider {
   syncTransactions(accessToken: string, cursor?: string): Promise<SyncPage>;
   getLiabilities(accessToken: string): Promise<ProviderLiability[]>;
   verifyWebhook(rawBody: string, jwt: string | null): Promise<boolean>;
+  /** Revokes the access token at the provider (user-initiated only). */
+  removeItem(accessToken: string): Promise<void>;
 }
 
 export class ProviderError extends Error {
