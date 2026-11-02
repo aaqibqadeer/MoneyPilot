@@ -51,7 +51,7 @@ class MongoColl<T extends { _id: string }> implements Coll<T> {
     if (docs.length) await (await this.c()).insertMany(docs as unknown as Document[], { ordered: false });
   }
   async updateOne(filter: Filter, u: Update, o: { upsert?: boolean } = {}) {
-    const r = await (await this.c()).updateOne(filter, withUpsertId(u, o.upsert), { upsert: o.upsert });
+    const r = await (await this.c()).updateOne(filter, withUpsertId(filter, u, o.upsert), { upsert: o.upsert });
     return { matchedCount: r.matchedCount, modifiedCount: r.modifiedCount, upsertedId: r.upsertedId as string | null };
   }
   async updateMany(filter: Filter, u: Update) {
@@ -72,9 +72,13 @@ class MongoColl<T extends { _id: string }> implements Coll<T> {
   }
 }
 
-/** Upserts must create string ids, never ObjectIds. */
-function withUpsertId(u: Update, upsert?: boolean): Document {
-  if (!upsert) return u as Document;
+/**
+ * Upserts must create string ids, never ObjectIds. When the filter already pins
+ * `_id`, Mongo uses it for the new doc, and adding another `_id` to
+ * `$setOnInsert` fails with "would modify the immutable field '_id'".
+ */
+export function withUpsertId(filter: Filter, u: Update, upsert?: boolean): Document {
+  if (!upsert || typeof filter._id === "string") return u as Document;
   return { ...u, $setOnInsert: { _id: crypto.randomUUID(), ...(u.$setOnInsert ?? {}) } };
 }
 
