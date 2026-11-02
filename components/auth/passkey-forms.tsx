@@ -95,7 +95,7 @@ export function SignupForm() {
       });
       const response = await startRegistration({ optionsJSON });
       await post("/api/auth/register/verify", { response });
-      router.replace("/");
+      router.replace("/settings?welcome=1#security");
       router.refresh();
     } catch (err) {
       setError(friendly(err));

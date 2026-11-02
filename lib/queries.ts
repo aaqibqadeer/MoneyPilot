@@ -122,3 +122,19 @@ export async function changeHistory(userId: string, limit = 50) {
   ]);
   return rows;
 }
+
+/** Settings → Security: passkeys, live sessions and recovery code count. */
+export async function securityOverview(userId: string, currentHash: string | null) {
+  const db = repos(userId);
+  const [passkeys, sessions, total, left] = await Promise.all([
+    db.passkeys.find({}, { sort: { createdAt: 1 }, projection: { publicKey: 0 } }),
+    db.sessions.find({ expiresAt: { $gt: new Date() } }, { sort: { lastSeenAt: -1 }, limit: 20 }),
+    db.recoveryCodes.count({}),
+    db.recoveryCodes.count({ usedAt: { $exists: false } }),
+  ]);
+  return {
+    passkeys: passkeys.map((p) => ({ _id: p._id, name: p.name, createdAt: p.createdAt.toISOString(), lastUsedAt: p.lastUsedAt?.toISOString() })),
+    sessions: sessions.map((s) => ({ _id: s._id, userAgent: s.userAgent, lastSeenAt: s.lastSeenAt.toISOString(), current: s.tokenHash === currentHash })),
+    recovery: { total, left },
+  };
+}

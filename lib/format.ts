@@ -22,3 +22,11 @@ export function relative(d: Date | string | undefined) {
 /** Human label for Plaid's ENUM_STYLE categories. */
 export const categoryLabel = (c?: string) =>
   c ? c.toLowerCase().replace(/_/g, " ").replace(/\b\w/g, (m) => m.toUpperCase()) : "Uncategorized";
+
+/** "Safari on iPhone" from a user agent string. */
+export function deviceLabel(ua?: string) {
+  if (!ua) return "Unknown device";
+  const os = /iPhone/.test(ua) ? "iPhone" : /iPad/.test(ua) ? "iPad" : /Android/.test(ua) ? "Android" : /Mac OS X/.test(ua) ? "Mac" : /Windows/.test(ua) ? "Windows" : /Linux/.test(ua) ? "Linux" : "device";
+  const browser = /Edg\//.test(ua) ? "Edge" : /Firefox\//.test(ua) ? "Firefox" : /Chrome\//.test(ua) ? "Chrome" : /Safari\//.test(ua) ? "Safari" : "Browser";
+  return `${browser} on ${os}`;
+}
