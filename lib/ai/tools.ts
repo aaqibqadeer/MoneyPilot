@@ -61,19 +61,7 @@ export function readTools(userId: string) {
       }),
       execute: async (i) => {
         const tags = await tagMaps();
-        const f: Record<string, unknown> = { ...notDeleted };
-        if (i.query) {
-          const rx = { $regex: i.query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), $options: "i" };
-          f.$or = [{ name: rx }, { merchant: rx }, { description: rx }, { notes: rx }];
-        }
-        if (i.from || i.to) f.date = { ...(i.from ? { $gte: new Date(i.from) } : {}), ...(i.to ? { $lte: endOfDay(i.to) } : {}) };
-        if (i.accountId) f.accountId = i.accountId;
-        if (i.tag) f.tagIds = tags.byName.get(i.tag.toLowerCase()) ?? "__none__";
-        if (i.category) f.category = i.category.toUpperCase();
-        if (i.minAmount !== undefined || i.maxAmount !== undefined) {
-          f.amountCents = { ...(i.minAmount !== undefined ? { $gte: i.minAmount * 100 } : {}), ...(i.maxAmount !== undefined ? { $lte: i.maxAmount * 100 } : {}) };
-        }
-        if (i.pending !== undefined) f.pending = i.pending;
+        const f = txnFilter(i, tags.byName);
         const [rows, total, accounts] = await Promise.all([
           db.transactions.find(f, { sort: { date: -1 }, limit: i.limit, projection: { raw: 0 } }),
           db.transactions.count(f),
@@ -203,6 +191,36 @@ export function readTools(userId: string) {
       },
     }),
   };
+}
+
+export interface TxnWhere {
+  query?: string;
+  from?: string;
+  to?: string;
+  accountId?: string;
+  tag?: string;
+  category?: string;
+  minAmount?: number;
+  maxAmount?: number;
+  pending?: boolean;
+}
+
+/** Mongo filter for live transactions, shared by search and proposeChanges. Amounts in dollars. */
+export function txnFilter(i: TxnWhere, tagIdByName: Map<string, string>) {
+  const f: Record<string, unknown> = { ...notDeleted };
+  if (i.query) {
+    const rx = { $regex: i.query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), $options: "i" };
+    f.$or = [{ name: rx }, { merchant: rx }, { description: rx }, { notes: rx }];
+  }
+  if (i.from || i.to) f.date = { ...(i.from ? { $gte: new Date(i.from) } : {}), ...(i.to ? { $lte: endOfDay(i.to) } : {}) };
+  if (i.accountId) f.accountId = i.accountId;
+  if (i.tag) f.tagIds = i.tag.toLowerCase() === "untagged" ? { $size: 0 } : tagIdByName.get(i.tag.toLowerCase()) ?? "__none__";
+  if (i.category) f.category = i.category.toUpperCase();
+  if (i.minAmount !== undefined || i.maxAmount !== undefined) {
+    f.amountCents = { ...(i.minAmount !== undefined ? { $gte: Math.round(i.minAmount * 100) } : {}), ...(i.maxAmount !== undefined ? { $lte: Math.round(i.maxAmount * 100) } : {}) };
+  }
+  if (i.pending !== undefined) f.pending = i.pending;
+  return f;
 }
 
 function endOfDay(d: string) {

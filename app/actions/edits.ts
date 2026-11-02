@@ -13,11 +13,11 @@ import { escapeRx, planRuleApply, planTagCreate, planTagDelete, planTransactionE
 
 export type ActionResult = { ok: true; changeSetId?: string; count?: number; id?: string } | { ok: false; error: string };
 
-async function run(fn: (userId: string) => Promise<Omit<Extract<ActionResult, { ok: true }>, "ok">>): Promise<ActionResult> {
+async function run(fn: (userId: string) => Promise<Omit<Extract<ActionResult, { ok: true }>, "ok">>, refreshPage = true): Promise<ActionResult> {
   const user = await requireUser();
   try {
     const r = await fn(user._id);
-    refresh();
+    if (refreshPage) refresh();
     return { ok: true, ...r };
   } catch (e) {
     const status = (e as { status?: number }).status;
@@ -124,19 +124,20 @@ export async function applyRule(id: string) {
   });
 }
 
-export async function applyChange(id: string) {
-  return run(async (userId) => ({ changeSetId: (await applyChangeSet(userId, idSchema.parse(id)))._id }));
+/** `refreshPage: false` from the chat card: a router refresh would remount the live chat. */
+export async function applyChange(id: string, refreshPage = true) {
+  return run(async (userId) => ({ changeSetId: (await applyChangeSet(userId, idSchema.parse(id)))._id }), refreshPage);
 }
 
-export async function rejectChange(id: string) {
+export async function rejectChange(id: string, refreshPage = true) {
   return run(async (userId) => {
     await rejectChangeSet(userId, idSchema.parse(id));
     return {};
-  });
+  }, refreshPage);
 }
 
-export async function undoChange(id: string) {
-  return run(async (userId) => ({ changeSetId: (await revertChangeSet(userId, idSchema.parse(id)))._id }));
+export async function undoChange(id: string, refreshPage = true) {
+  return run(async (userId) => ({ changeSetId: (await revertChangeSet(userId, idSchema.parse(id)))._id }), refreshPage);
 }
 
 /** Current status of a changeSet, for chat proposal cards loaded from history. */

@@ -10,6 +10,7 @@ import { chatModel } from "@/lib/ai/model";
 import { systemPrompt } from "@/lib/ai/prompt";
 import { readTools } from "@/lib/ai/tools";
 import { incomingMetadataSchema, type ChatUIMessage } from "@/lib/ai/types";
+import { writeTools } from "@/lib/ai/write-tools";
 import { requireApiUser } from "@/lib/auth/session";
 import { env } from "@/lib/env";
 import { rateLimit } from "@/lib/rate-limit";
@@ -30,7 +31,7 @@ export const POST = route(async (req: Request) => {
   const { id, messages: raw } = body.parse(await req.json());
   const store = chatStore(user._id);
   const session = await store.ensure(id);
-  const tools = readTools(user._id);
+  const tools = { ...readTools(user._id), ...writeTools(user._id) };
 
   let messages: ChatUIMessage[];
   try {

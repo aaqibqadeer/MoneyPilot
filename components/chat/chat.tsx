@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import type { ChatUIMessage } from "@/lib/ai/types";
 import { cn } from "@/lib/utils";
+import { ChangeProposal, type ProposalOutput } from "./change-proposal";
 import { Markdown } from "./markdown";
 import { refreshSessions } from "./session-list";
 import { TransactionResults, type TxnRow } from "./transaction-results";
@@ -17,7 +18,7 @@ const SUGGESTIONS = [
   "What did I spend on restaurants last month vs the month before?",
   "Show my spending by tag as a pie chart",
   "When are my card payments due?",
-  "Draw a diagram of my money flow this month",
+  "Tag all my Uber rides as Transport",
 ];
 
 const TOOL_LABEL: Record<string, string> = {
@@ -29,6 +30,7 @@ const TOOL_LABEL: Record<string, string> = {
   getLiabilities: "Checked card details",
   getClaims: "Checked claims",
   runAnalyticsQuery: "Ran an analysis",
+  proposeChanges: "Prepared changes",
 };
 
 const textOf = (m: ChatUIMessage) => m.parts.flatMap((p) => (p.type === "text" ? [p.text] : [])).join("\n\n");
@@ -127,6 +129,7 @@ export function Chat({ id, initialMessages, aiReady }: { id: string; initialMess
                               {p.state === "output-error" && " (failed)"}
                             </span>
                             {name === "searchTransactions" && out?.transactions && <TransactionResults total={out.total ?? 0} transactions={out.transactions} />}
+                            {name === "proposeChanges" && done && <ChangeProposal out={p.output as ProposalOutput} />}
                           </div>
                         );
                       }

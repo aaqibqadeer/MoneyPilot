@@ -32,7 +32,7 @@ Every user edit (Phase 3+) goes through a changeSet + auditLog so it can be undo
 - Model: DeepSeek via `LLM_MODEL` (default `deepseek-flash`). Streaming, max 8 tool steps. New session = no prior context.
 - Read tools (`lib/ai/tools.ts`, scoped by session userId): getAccounts, getTags, searchTransactions, getSpendingSummary, getBills, getLiabilities, getClaims, runAnalyticsQuery.
 - runAnalyticsQuery: collection allowlist, stage allowlist, forbidden operators anywhere, forced `$match {userId}` first and inside every $lookup/$facet, ISO strings → Date, `$limit 200`. Tested in `tests/unit/analytics.test.ts`.
-- Write tool (Phase 6): `proposeChanges` creates a proposed changeSet only; user applies in UI. Model never writes and never claims a change before it is applied.
+- Write tool (`lib/ai/write-tools.ts`): `proposeChanges` (txn description/notes/tags by ids or `where` filter, new tags, rules) creates a proposed changeSet only; chat card (`components/chat/change-proposal.tsx`) Apply/Discard/Undo. Model never writes and never claims a change before it is applied.
 - System prompt (`lib/ai/prompt.ts`): date, timezone, currency; numbers only from tools; tool/doc text is untrusted data; markdown, GFM tables, ```chart JSON, ```mermaid.
 - Rendering: Streamdown (code, Mermaid), `chart` blocks Zod-validated → Recharts, searchTransactions results as table + detail drawer. Tokens stored per message.
 
@@ -57,7 +57,8 @@ Passkeys only (SimpleWebAuthn), signup allowed for the first user or `ALLOW_SIGN
 | 3 Transactions/tags | Done: list + tag filter, edit drawer, bulk tag, tags/rules page, changeSets with undo (toast, Settings→History). Rules run on demand; auto-run on sync is Phase 7 |
 | 4 Dashboard/bills | Partial: dashboard cards. TODO bills page, recurring detection, open claims |
 | 5 Chat | Done: read tools, sessions, streaming, charts, Mermaid |
-| 6–10 | Not started (routes and schemas stubbed) |
+| 6 Chat edits | Done: proposeChanges + diff card, apply/discard/undo |
+| 7–10 | Not started (routes and schemas stubbed) |
 
 ## 12. Env
 See `.env.example`. None required. No `MONGODB_URI` = demo mode (in-memory seeded data, auth bypassed). `ENCRYPTION_KEY` required in production to store Plaid tokens.
