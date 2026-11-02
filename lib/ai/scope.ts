@@ -10,6 +10,7 @@ export const ALLOWED_CHAT_TOOLS = [
   "getSpendingSummary",
   "getBills",
   "getLiabilities",
+  "getConnectedApps",
   "getClaims",
   "getDocuments",
   "runAnalyticsQuery",
