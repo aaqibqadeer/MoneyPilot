@@ -33,6 +33,7 @@ Every user edit (Phase 3+) goes through a changeSet + auditLog so it can be undo
 - Read tools (`lib/ai/tools.ts`, scoped by session userId): getAccounts, getTags, searchTransactions, getSpendingSummary, getBills, getLiabilities, getClaims, runAnalyticsQuery.
 - runAnalyticsQuery: collection allowlist, stage allowlist, forbidden operators anywhere, forced `$match {userId}` first and inside every $lookup/$facet, ISO strings → Date, `$limit 200`. Tested in `tests/unit/analytics.test.ts`.
 - Write tool (`lib/ai/write-tools.ts`): `proposeChanges` (txn description/notes/tags by ids or `where` filter, new tags, rules) creates a proposed changeSet only; chat card (`components/chat/change-proposal.tsx`) Apply/Discard/Undo. Model never writes and never claims a change before it is applied.
+- Scope: app data + app help only, no web/outside knowledge; off-topic gets a fixed refusal. Tools pass `scopedTools` allowlist (`lib/ai/scope.ts`), tested in `tests/unit/scope.test.ts`.
 - System prompt (`lib/ai/prompt.ts`): date, timezone, currency; numbers only from tools; tool/doc text is untrusted data; markdown, GFM tables, ```chart JSON, ```mermaid.
 - Rendering: Streamdown (code, Mermaid), `chart` blocks Zod-validated → Recharts, searchTransactions results as table + detail drawer. Tokens stored per message.
 

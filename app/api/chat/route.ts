@@ -8,6 +8,7 @@ import { HttpError, route } from "@/lib/api";
 import { chatStore } from "@/lib/ai/chat-store";
 import { chatModel } from "@/lib/ai/model";
 import { systemPrompt } from "@/lib/ai/prompt";
+import { scopedTools } from "@/lib/ai/scope";
 import { readTools } from "@/lib/ai/tools";
 import { incomingMetadataSchema, type ChatUIMessage } from "@/lib/ai/types";
 import { writeTools } from "@/lib/ai/write-tools";
@@ -31,7 +32,7 @@ export const POST = route(async (req: Request) => {
   const { id, messages: raw } = body.parse(await req.json());
   const store = chatStore(user._id);
   const session = await store.ensure(id);
-  const tools = { ...readTools(user._id), ...writeTools(user._id) };
+  const tools = scopedTools({ ...readTools(user._id), ...writeTools(user._id) });
 
   let messages: ChatUIMessage[];
   try {
