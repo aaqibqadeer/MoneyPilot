@@ -32,7 +32,7 @@ export const POST = route(async (req: Request) => {
   const { id, messages: raw } = body.parse(await req.json());
   const store = chatStore(user._id);
   const session = await store.ensure(id);
-  const tools = scopedTools({ ...readTools(user._id), ...writeTools(user._id) });
+  const tools = scopedTools({ ...readTools(user._id, { name: user.name, email: user.email }), ...writeTools(user._id) });
 
   let messages: ChatUIMessage[];
   try {

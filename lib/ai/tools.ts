@@ -3,6 +3,7 @@ import { tool } from "ai";
 import { z } from "zod";
 import { PLAID_PORTAL_URL, bankAccessGuide, detectApps } from "@/lib/bank/connected-apps";
 import { repos } from "@/lib/db/repos";
+import { cancelHelp, cancelLetter, DISPUTE_REASONS, disputeDeadline, disputeLetter, issuerHelp, refundLetter, type DisputeReason } from "@/lib/assist";
 import { appTransactions } from "@/lib/queries";
 import { AnalyticsQueryError, buildScopedPipeline, ANALYTICS_COLLECTIONS } from "./analytics";
 
@@ -12,7 +13,7 @@ const day = (d?: Date) => (d ? new Date(d).toISOString().slice(0, 10) : null);
 const notDeleted = { deletedAt: { $exists: false } };
 
 /** Read-only chat tools (CLAUDE.md §6). Every query is scoped to `userId` via repos(). */
-export function readTools(userId: string) {
+export function readTools(userId: string, profile: { name?: string; email?: string } = {}) {
   const db = repos(userId);
 
   const tagMaps = async () => {
@@ -218,6 +219,43 @@ export function readTools(userId: string) {
           totalTransactions: ex.transactions?.length ?? 0,
           bills: ex.bills?.map((b) => ({ name: b.name, amount: dollars(b.amountCents), dueDate: b.dueDate })),
           claims: ex.claims?.map((c) => ({ title: c.title, kind: c.kind, counterparty: c.counterparty, amount: dollars(c.claimedCents) })),
+        };
+      },
+    }),
+
+    getActionHelp: tool({
+      description:
+        "Help the user act: kind 'cancel' = how to cancel a subscription (official cancel page link, steps, ready-to-send cancellation email); kind 'dispute' = get money back for one transaction (refund request to the merchant, dispute letter for the card issuer, issuer link, deadline). MoneyPilot cannot cancel, email or file anything itself: give the user the link and letter. For dispute pass transactionId (find it with searchTransactions).",
+      inputSchema: z.object({
+        kind: z.enum(["cancel", "dispute"]),
+        merchant: z.string().max(100).optional().describe("Merchant or service name, for cancel"),
+        transactionId: z.string().optional(),
+        reason: z.enum(Object.keys(DISPUTE_REASONS) as [DisputeReason, ...DisputeReason[]]).optional().describe(Object.entries(DISPUTE_REASONS).map(([k, v]) => `${k}: ${v}`).join("; ")),
+      }),
+      execute: async ({ kind, merchant, transactionId, reason }) => {
+        const t = transactionId ? await db.transactions.byId(transactionId) : null;
+        const name = profile.name || undefined;
+        const account = t?.accountId ? await db.accounts.byId(t.accountId) : null;
+        const label = t ? (t.description ?? t.merchant ?? t.name) : merchant;
+        if (!label) return { error: "Give a merchant name or a transactionId." };
+        if (kind === "cancel") {
+          const info = cancelHelp(label);
+          return { ...info, email: cancelLetter({ merchant: info.known ? info.name : label, amountCents: t?.amountCents, currency: t?.currency, mask: account?.mask, name, email: profile.email }) };
+        }
+        if (!t) return { error: "Dispute needs a transactionId; find it with searchTransactions." };
+        if (t.amountCents <= 0) return { error: "That transaction is money in, not a charge." };
+        const item = account ? await db.items.byId(account.itemId) : null;
+        const issuer = issuerHelp(item?.institutionName);
+        const facts = { merchant: label, amountCents: t.amountCents, date: t.date, currency: t.currency, mask: account?.mask, accountType: account?.type, reason: reason ?? "not_received", name };
+        const deadline = disputeDeadline(t.date, account?.type);
+        return {
+          transaction: { id: t._id, merchant: label, date: day(t.date), amount: dollars(t.amountCents) },
+          actBy: day(deadline.actBy),
+          rule: deadline.rule,
+          issuer,
+          refundRequestToMerchant: refundLetter(facts),
+          disputeLetterToIssuer: disputeLetter({ ...facts, issuer: issuer.known ? issuer.name : undefined }),
+          trackIt: "Transactions → open the charge → Dispute or refund → Track it on Claims",
         };
       },
     }),

@@ -216,6 +216,7 @@ const claimInput = z.object({
   paidCents: z.number().int().min(0).max(1e10).nullable().optional(),
   deadlineAt: z.coerce.date().nullable().optional(),
   notes: z.string().max(2000).nullable().optional(),
+  transactionIds: z.array(z.string().max(64)).max(20).optional(),
 });
 const STATUS_LABEL: Record<string, string> = { draft: "Draft", submitted: "Submitted", in_review: "In review", approved: "Approved", paid: "Paid", denied: "Denied", closed: "Closed" };
 
@@ -225,7 +226,7 @@ export async function createClaim(input: z.input<typeof claimInput>) {
     const id = newId();
     const now = new Date();
     const op = createOp("claims", id, {
-      ...c, transactionIds: [], documentIds: [], timeline: [{ at: now, note: `Created as ${STATUS_LABEL[c.status]}` }], submittedAt: c.status === "draft" ? null : now,
+      ...c, transactionIds: c.transactionIds ?? [], documentIds: [], timeline: [{ at: now, note: `Created as ${STATUS_LABEL[c.status]}` }], submittedAt: c.status === "draft" ? null : now,
     });
     return { id, changeSetId: await commit(userId, `Added claim ${c.title}`, [op]) };
   });
