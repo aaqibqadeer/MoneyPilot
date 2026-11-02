@@ -47,7 +47,9 @@ describe("changeSets", () => {
     const bad: ChangeOp = { collection: "transactions", docId: "1", kind: "update", before: { amountCents: 1 }, after: { amountCents: 2 } };
     expect(() => validateOps([bad])).toThrow(/not editable/);
     expect(() => validateOps([{ ...bad, collection: "users" as never }])).toThrow(/Cannot edit/);
-    expect(() => validateOps([{ collection: "transactions", docId: "1", kind: "delete", before: {}, after: null }])).toThrow(/Cannot delete/);
+    expect(() => validateOps([{ collection: "transactions", docId: "1", kind: "delete", before: {}, after: null }])).toThrow(/Only imported or manual/);
+    expect(() => validateOps([{ collection: "transactions", docId: "1", kind: "create", before: null, after: { source: "import", date: new Date(), amountCents: 5, name: "x" } }])).not.toThrow();
+    expect(() => validateOps([{ collection: "transactions", docId: "1", kind: "create", before: null, after: { source: "plaid", name: "x" } }])).toThrow(/Only imported/);
     expect(updateOp("transactions", { _id: "1", notes: "x" }, { notes: "x" })).toBeNull();
   });
 

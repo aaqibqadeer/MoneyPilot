@@ -31,7 +31,7 @@ Every user edit (Phase 3+) goes through a changeSet + auditLog so it can be undo
 
 ## 6. AI chat
 - Model: DeepSeek via `LLM_MODEL` (default `deepseek-flash`). Streaming, max 8 tool steps. New session = no prior context.
-- Read tools (`lib/ai/tools.ts`, scoped by session userId): getAccounts, getTags, searchTransactions, getSpendingSummary, getBills, getLiabilities, getClaims, runAnalyticsQuery.
+- Read tools (`lib/ai/tools.ts`, scoped by session userId): getAccounts, getTags, searchTransactions, getSpendingSummary, getBills, getLiabilities, getClaims, getDocuments, runAnalyticsQuery.
 - runAnalyticsQuery: collection allowlist, stage allowlist, forbidden operators anywhere, forced `$match {userId}` first and inside every $lookup/$facet, ISO strings → Date, `$limit 200`. Tested in `tests/unit/analytics.test.ts`.
 - Write tool (`lib/ai/write-tools.ts`): `proposeChanges` (txn description/notes/tags by ids or `where` filter, new tags, rules) creates a proposed changeSet only; chat card (`components/chat/change-proposal.tsx`) Apply/Discard/Undo. Model never writes and never claims a change before it is applied.
 - Scope: app data + app help only, no web/outside knowledge; off-topic gets a fixed refusal. Tools pass `scopedTools` allowlist (`lib/ai/scope.ts`), tested in `tests/unit/scope.test.ts`.
@@ -42,7 +42,7 @@ Every user edit (Phase 3+) goes through a changeSet + auditLog so it can be undo
 `BankDataProvider` (`lib/bank/types.ts`), `PlaidProvider`. Access token AES-256-GCM encrypted (`lib/crypto.ts`). `/transactions/sync` with cursor; merge in `lib/bank/merge.ts` (upsert by provider id, pending→posted keeps user edits, removed deleted). Liabilities → liabilities + derived bills. Triggers: after link, Sync now, verified webhook (`/api/plaid/webhook`, ES256 JWT + body hash), daily cron `/api/cron/sync` (Bearer CRON_SECRET). Update mode for re-auth. `PLAID_ENV=production` warns about the 10 lifetime Items cap; never call item/remove automatically. Sandbox until the owner switches.
 
 ## 8. Documents (Phase 8)
-Upload to private Vercel Blob (images, PDF, CSV, XLSX, TXT; size/MIME limits) → parse (CSV/XLSX mapping, PDF text + vision fallback, images via vision model) → Zod typed records (transactions, claims, bills) → dedupe → review screen → import as changeSet. Chat attachments use the same pipeline.
+Upload (≤10 MB) to private Vercel Blob if configured (images, PDF, CSV, XLSX, TXT; size/MIME limits) → parse (CSV/XLSX mapping, PDF text + vision fallback, images via vision model) → Zod typed records (transactions, claims, bills) → dedupe → review screen → import as changeSet. Chat attachments use the same pipeline.
 
 ## 9. Auto-tagging (Phase 7)
 Tag rules first, then LLM in batches with the user's tags (may suggest new), structured output with confidence → changeSet preview grouped by tag. Corrections offer "always tag <merchant> as <tag>" rules.
@@ -61,7 +61,8 @@ Passkeys only (SimpleWebAuthn), signup allowed for the first user or `ALLOW_SIGN
 | 5 Chat | Done: read tools, sessions, streaming, charts, Mermaid |
 | 6 Chat edits | Done: proposeChanges + diff card, apply/discard/undo |
 | 7 Auto-tagging | Done: `lib/autotag.ts`: enabled rules run on synced new txns (applied `autotag` changeSet); /tags "Suggest tags with AI" (batches of 50, Output.object, confidence ≥0.6) → proposed changeSet grouped by tag; edit drawer offers "always tag" rule |
-| 8–10 | Not started (routes and schemas stubbed) |
+| 8 Documents/claims | Done: `lib/documents/` (tabular.ts CSV/XLSX mapping, extract.ts PDF text/vision/LLM → Zod records, service.ts upload+dedupe+planImport); /documents upload, /documents/[id] review → `import` changeSet (imported txns `source: import`, `documentId`); /claims with status timeline; chat paperclip + getDocuments. No Blob = parse only, originals not kept |
+| 9–10 | Not started |
 
 ## 12. Env
 See `.env.example`. None required. No `MONGODB_URI` = demo mode (in-memory seeded data, auth bypassed). `ENCRYPTION_KEY` required in production to store Plaid tokens.

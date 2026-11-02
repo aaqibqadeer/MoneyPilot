@@ -13,10 +13,16 @@ export const EDITABLE = {
   tags: ["name", "color", "parentId"],
   tagRules: ["field", "match", "pattern", "tagIds", "enabled"],
   bills: ["name", "amountCents", "dueDate", "source", "accountId", "status", "recurrence", "paidTransactionId"],
+  claims: ["title", "kind", "counterparty", "status", "claimedCents", "approvedCents", "paidCents", "submittedAt", "deadlineAt", "transactionIds", "documentIds", "timeline", "notes"],
 } as const;
 export type Editable = keyof typeof EDITABLE;
 /** Collections whose docs a changeSet may create or delete (transactions are only edited). */
-const CREATABLE: Editable[] = ["tags", "tagRules", "bills"];
+const CREATABLE: Editable[] = ["tags", "tagRules", "bills", "claims", "transactions"];
+/** Fields a create op may set when they differ from EDITABLE (imported or manual transactions only). */
+const CREATE_FIELDS: Partial<Record<Editable, readonly string[]>> = {
+  transactions: ["source", "date", "amountCents", "currency", "name", "merchant", "accountId", "description", "notes", "tagIds", "pending", "documentId"],
+};
+const fieldsFor = (c: Editable, kind: ChangeOp["kind"]) => (kind === "update" ? EDITABLE[c] : (CREATE_FIELDS[c] ?? EDITABLE[c]));
 export const MAX_OPS = 1000;
 
 type Values = Record<string, unknown>;
@@ -56,20 +62,24 @@ export function updateOp(collection: Editable, doc: Values & { _id: string }, pa
 }
 
 export function createOp(collection: Editable, docId: string, values: Values): ChangeOp {
-  return { collection, docId, kind: "create", before: null, after: pick(values, EDITABLE[collection]) };
+  return { collection, docId, kind: "create", before: null, after: pick(values, fieldsFor(collection, "create")) };
 }
 
 export function deleteOp(collection: Editable, doc: Values & { _id: string }): ChangeOp {
-  return { collection, docId: doc._id, kind: "delete", before: pick(doc, EDITABLE[collection]), after: null };
+  return { collection, docId: doc._id, kind: "delete", before: pick(doc, fieldsFor(collection, "delete")), after: null };
 }
 
 /** Rejects ops that touch anything outside EDITABLE. Runs on every apply and revert. */
 export function validateOps(ops: ChangeOp[]) {
   if (ops.length > MAX_OPS) throw new HttpError(400, `Too many changes at once (max ${MAX_OPS})`);
   for (const op of ops) {
-    const allowed: readonly string[] | undefined = EDITABLE[op.collection];
-    if (!allowed) throw new HttpError(400, `Cannot edit ${op.collection}`);
+    if (!EDITABLE[op.collection]) throw new HttpError(400, `Cannot edit ${op.collection}`);
+    const allowed: readonly string[] = fieldsFor(op.collection, op.kind);
     if (op.kind !== "update" && !CREATABLE.includes(op.collection)) throw new HttpError(400, `Cannot ${op.kind} ${op.collection}`);
+    // Bank transactions are never created or deleted by a changeSet; only imported/manual ones are.
+    if (op.collection === "transactions" && op.kind !== "update" && !["import", "manual"].includes((op.after ?? op.before)?.source as string)) {
+      throw new HttpError(400, "Only imported or manual transactions can be added or removed");
+    }
     for (const v of [op.before, op.after]) {
       for (const k of Object.keys(v ?? {})) if (!allowed.includes(k)) throw new HttpError(400, `Field ${k} is not editable`);
     }

@@ -3,7 +3,8 @@
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, isToolUIPart, getToolName } from "ai";
 import { useEffect, useRef, useState } from "react";
-import { ArrowUp, Check, Copy, Loader2, Pencil, RefreshCw, Sparkles, Square, Wrench } from "lucide-react";
+import { ArrowUp, Check, Copy, Loader2, Paperclip, Pencil, RefreshCw, Sparkles, Square, Wrench } from "lucide-react";
+import { uploadFile } from "@/components/documents/uploader";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -60,6 +61,24 @@ export function Chat({ id, initialMessages, aiReady }: { id: string; initialMess
     if (messages.length === 0) window.history.replaceState(null, "", `/chat/${id}`);
     sendMessage({ text: t });
     setInput("");
+  };
+
+  const fileInput = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const attach = async (file?: File) => {
+    if (!file || busy) return;
+    setUploading(true);
+    try {
+      const r = await uploadFile(file);
+      if (messages.length === 0) window.history.replaceState(null, "", `/chat/${id}`);
+      sendMessage({ text: `I uploaded "${file.name}" (document ${r.id}). What's in it?${input.trim() ? ` ${input.trim()}` : ""}` });
+      setInput("");
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setUploading(false);
+      if (fileInput.current) fileInput.current.value = "";
+    }
   };
 
   const lastUser = [...messages].reverse().find((m) => m.role === "user");
@@ -159,6 +178,10 @@ export function Chat({ id, initialMessages, aiReady }: { id: string; initialMess
         onSubmit={(e) => { e.preventDefault(); send(input); }}
       >
         <div className="bg-card mx-auto flex max-w-3xl items-end gap-2 rounded-2xl border p-2 shadow-xs">
+          <input ref={fileInput} type="file" className="hidden" accept=".csv,.txt,.pdf,.xlsx,.png,.jpg,.jpeg,.webp,.heic" onChange={(e) => attach(e.target.files?.[0])} />
+          <Button type="button" size="icon" variant="ghost" disabled={!aiReady || busy || uploading} onClick={() => fileInput.current?.click()} aria-label="Attach a document">
+            {uploading ? <Loader2 className="animate-spin" /> : <Paperclip />}
+          </Button>
           <Textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}

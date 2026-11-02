@@ -98,6 +98,8 @@ export const transactionSchema = z.object({
   tagIds: z.array(id).default([]),
   pending: z.boolean().default(false),
   deletedAt: date.optional(),
+  /** Set when imported from a document (Phase 8). */
+  documentId: z.string().optional(),
   raw: z.unknown().optional(),
 });
 
@@ -168,6 +170,8 @@ export const documentSchema = z.object({
   status: z.enum(["uploaded", "parsing", "parsed", "imported", "failed"]).default("uploaded"),
   extracted: z.unknown().optional(),
   error: z.string().optional(),
+  /** The import changeSet, once imported. */
+  changeSetId: z.string().optional(),
 });
 
 export const chatSessionSchema = z.object({

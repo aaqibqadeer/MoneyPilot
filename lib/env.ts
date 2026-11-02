@@ -56,6 +56,7 @@ export const features = {
   llm: !!env.DEEPSEEK_API_KEY,
   email: !!(env.RESEND_API_KEY && env.EMAIL_FROM),
   blob: !!env.BLOB_READ_WRITE_TOKEN,
+  vision: !!(env.DEEPSEEK_API_KEY && env.LLM_VISION_MODEL),
   cron: !!env.CRON_SECRET,
   /** No database → single demo user with in-memory seeded data, auth bypassed. */
   demo: !env.MONGODB_URI,

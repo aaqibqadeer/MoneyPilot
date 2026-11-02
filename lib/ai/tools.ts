@@ -172,6 +172,32 @@ export function readTools(userId: string) {
       },
     }),
 
+    getDocuments: tool({
+      description:
+        "Uploaded documents (statements, receipts, bills, claim letters) and what was extracted from them. Without documentId: the 10 most recent. With documentId: its extracted records (dollars; positive = money out). Importing happens only on the review page /documents/<id>, which the user opens.",
+      inputSchema: z.object({ documentId: z.string().optional() }),
+      execute: async ({ documentId }) => {
+        type Ex = { summary?: string; warnings?: string[]; transactions?: { date: string; description: string; amountCents: number; duplicateOf?: string }[]; bills?: { name: string; amountCents?: number; dueDate: string }[]; claims?: { title: string; kind: string; counterparty?: string; claimedCents?: number }[] };
+        if (!documentId) {
+          const docs = await db.documents.find({}, { sort: { createdAt: -1 }, limit: 10 });
+          return docs.map((d) => {
+            const ex = (d.extracted ?? {}) as Ex;
+            return { id: d._id, fileName: d.fileName, uploaded: day(d.createdAt), status: d.status, transactions: ex.transactions?.length ?? 0, bills: ex.bills?.length ?? 0, claims: ex.claims?.length ?? 0, reviewUrl: `/documents/${d._id}` };
+          });
+        }
+        const d = await db.documents.byId(documentId);
+        if (!d) return { error: "Document not found" };
+        const ex = (d.extracted ?? {}) as Ex;
+        return {
+          fileName: d.fileName, status: d.status, error: d.error, summary: ex.summary, warnings: ex.warnings, reviewUrl: `/documents/${d._id}`,
+          transactions: ex.transactions?.slice(0, 50).map((t) => ({ date: t.date, description: t.description, amount: dollars(t.amountCents), possibleDuplicate: !!t.duplicateOf })),
+          totalTransactions: ex.transactions?.length ?? 0,
+          bills: ex.bills?.map((b) => ({ name: b.name, amount: dollars(b.amountCents), dueDate: b.dueDate })),
+          claims: ex.claims?.map((c) => ({ title: c.title, kind: c.kind, counterparty: c.counterparty, amount: dollars(c.claimedCents) })),
+        };
+      },
+    }),
+
     runAnalyticsQuery: tool({
       description: `Run a read-only MongoDB aggregation for questions the other tools can't answer. Collections: ${ANALYTICS_COLLECTIONS.join(", ")}. Amounts are integer cents (amountCents; positive = money out). Dates are ISO strings. transactions fields: date, amountCents, name, merchant, description, category, categoryDetailed, pending, accountId, tagIds (array of tag _ids; $lookup tags for names), deletedAt. The user filter is added automatically. Stages allowed: $match $group $sort $limit $project $addFields $unwind $count $bucket $facet $lookup and similar. Max 200 rows.`,
       inputSchema: z.object({

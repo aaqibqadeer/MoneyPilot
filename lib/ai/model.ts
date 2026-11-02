@@ -7,3 +7,9 @@ export function chatModel() {
   if (!env.DEEPSEEK_API_KEY) return null;
   return createDeepSeek({ apiKey: env.DEEPSEEK_API_KEY })(env.LLM_MODEL);
 }
+
+/** Vision-capable model for images and scanned PDFs (Phase 8). Null unless LLM_VISION_MODEL is set. */
+export function visionModel() {
+  if (!env.DEEPSEEK_API_KEY || !env.LLM_VISION_MODEL) return null;
+  return createDeepSeek({ apiKey: env.DEEPSEEK_API_KEY })(env.LLM_VISION_MODEL);
+}
