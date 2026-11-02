@@ -1,4 +1,6 @@
+import Link from "next/link";
 import { cookies } from "next/headers";
+import { LogoMark } from "@/components/brand/logo";
 import { AppSidebar } from "@/components/shell/app-sidebar";
 import { CommandPalette } from "@/components/shell/command-palette";
 import { ContentArea } from "@/components/shell/content-area";
@@ -20,7 +22,10 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
       <SidebarInset className="h-dvh min-w-0 overflow-hidden">
         <header className="bg-background/80 z-20 flex h-14 shrink-0 items-center gap-2 border-b px-3 backdrop-blur sm:px-4">
           <SidebarTrigger className="-ml-1" />
-          <Separator orientation="vertical" className="mr-1 h-4" />
+          <Link href="/" aria-label="MoneyPilot home" className="md:hidden">
+            <LogoMark className="size-7" />
+          </Link>
+          <Separator orientation="vertical" className="mr-1 h-4 max-md:hidden" />
           <div className="flex flex-1 justify-center sm:justify-start">
             <CommandPalette />
           </div>

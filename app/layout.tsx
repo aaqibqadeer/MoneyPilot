@@ -12,6 +12,9 @@ const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"]
 export const metadata: Metadata = {
   title: { default: "MoneyPilot", template: "%s · MoneyPilot" },
   description: "Personal finance with an AI co-pilot.",
+  applicationName: "MoneyPilot",
+  appleWebApp: { title: "MoneyPilot", statusBarStyle: "default" },
+  ...(process.env.VERCEL_PROJECT_PRODUCTION_URL && { metadataBase: new URL(`https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`) }),
 };
 
 export const viewport: Viewport = {

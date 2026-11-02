@@ -14,6 +14,7 @@ Personal finance app: Plaid bank data in MongoDB, queried mainly through an AI c
 Next.js 16 App Router, React 19, TS strict, pnpm, Tailwind 4, shadcn/ui (radix), next-themes, MongoDB driver (no Mongoose), Zod 4, SimpleWebAuthn, Plaid, Vercel AI SDK 7 + @ai-sdk/deepseek, Streamdown, Recharts, Vitest, Playwright. Hosted on Vercel.
 
 ## 3. Layout
+- Brand: `components/brand/logo.tsx` (theme-aware mark), `app/icon.svg`; rasters (favicon, apple/manifest icons, OG) from `node scripts/brand-assets.mjs`.
 - `lib/env.ts` Zod env, all optional; `features` flags. `lib/themes.ts` all colour tokens (one object per theme).
 - `lib/db/`: `schemas.ts` (Zod, all collections), `client.ts` (cached MongoClient, `collection()`), `memory.ts` (mingo in-memory backend for demo mode), `repos.ts` (`repos(userId)`: every query forced to userId), `indexes.ts`, `demo.ts` (seed).
 - `lib/changes.ts` changeSet apply/revert (field whitelist, stale-state check, auditLog); `lib/edits.ts` builds ops (txn edits, tags, rules); `app/actions/edits.ts` server actions.
