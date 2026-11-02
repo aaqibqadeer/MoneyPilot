@@ -1,8 +1,10 @@
 import "server-only";
 import { tool } from "ai";
 import { z } from "zod";
+import { PLAID_PORTAL_URL, bankAccessGuide, detectApps } from "@/lib/bank/connected-apps";
 import { repos } from "@/lib/db/repos";
 import { cancelHelp, cancelLetter, DISPUTE_REASONS, disputeDeadline, disputeLetter, issuerHelp, refundLetter, type DisputeReason } from "@/lib/assist";
+import { appTransactions } from "@/lib/queries";
 import { AnalyticsQueryError, buildScopedPipeline, ANALYTICS_COLLECTIONS } from "./analytics";
 
 const isoDate = z.string().describe("ISO date, e.g. 2026-10-01");
@@ -146,6 +148,27 @@ export function readTools(userId: string, profile: { name?: string; email?: stri
         if (from || to) f.dueDate = { ...(from ? { $gte: new Date(from) } : {}), ...(to ? { $lte: endOfDay(to) } : {}) };
         const bills = await db.bills.find(f, { sort: { dueDate: 1 }, limit: 50 });
         return bills.map((b) => ({ name: b.name, dueDate: day(b.dueDate), amount: dollars(b.amountCents), status: b.status, source: b.source }));
+      },
+    }),
+
+    getConnectedApps: tool({
+      description:
+        "Outside apps (PayPal, Venmo, Credit Karma, Robinhood…) seen in each account's transactions, plus where the user can see every app with access (Plaid Portal and the bank's own page). Inferred from transactions only: apps that only read data leave no trace.",
+      inputSchema: z.object({}),
+      execute: async () => {
+        const [items, accounts, txns] = await Promise.all([db.items.find({}), db.accounts.find({}), appTransactions(userId)]);
+        const apps = detectApps(txns);
+        return {
+          plaidPortal: PLAID_PORTAL_URL,
+          banks: items.map((i) => ({
+            bank: i.institutionName,
+            archived: i.status === "archived",
+            reviewAllAppsAt: bankAccessGuide(i.institutionName),
+            accounts: accounts
+              .filter((a) => a.itemId === i._id)
+              .map((a) => ({ account: a.name, mask: a.mask, appsSeen: (apps[a._id] ?? []).map((x) => ({ app: x.name, kind: x.kind, transactions: x.count, lastSeen: day(x.lastSeen) })) })),
+          })),
+        };
       },
     }),
 

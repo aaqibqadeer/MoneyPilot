@@ -29,6 +29,7 @@ const TOOL_LABEL: Record<string, string> = {
   getSpendingSummary: "Summarized spending",
   getBills: "Checked bills",
   getLiabilities: "Checked card details",
+  getConnectedApps: "Checked connected apps",
   getClaims: "Checked claims",
   runAnalyticsQuery: "Ran an analysis",
   proposeChanges: "Prepared changes",
