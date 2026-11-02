@@ -16,6 +16,7 @@ Next.js 16 App Router, React 19, TS strict, pnpm, Tailwind 4, shadcn/ui (radix),
 ## 3. Layout
 - `lib/env.ts` Zod env, all optional; `features` flags. `lib/themes.ts` all colour tokens (one object per theme).
 - `lib/db/`: `schemas.ts` (Zod, all collections), `client.ts` (cached MongoClient, `collection()`), `memory.ts` (mingo in-memory backend for demo mode), `repos.ts` (`repos(userId)`: every query forced to userId), `indexes.ts`, `demo.ts` (seed).
+- `lib/changes.ts` changeSet apply/revert (field whitelist, stale-state check, auditLog); `lib/edits.ts` builds ops (txn edits, tags, rules); `app/actions/edits.ts` server actions.
 - `lib/auth/` sessions + WebAuthn; `proxy.ts` optimistic cookie gate. `lib/bank/` provider + sync. `lib/ai/` model, prompt, tools, analytics guard, chat store.
 - App code reads data only via `repos(userId)`; raw `collection()` only in auth plumbing, cron and webhooks.
 
@@ -53,7 +54,7 @@ Passkeys only (SimpleWebAuthn), signup allowed for the first user or `ALLOW_SIGN
 | 0 Foundation | Done |
 | 1 Auth | Partial: passkey signup/login/logout, sessions, proxy, rate limits. TODO recovery codes, magic link, Settings→Security |
 | 2 Plaid | Done (sandbox): link, sync, liabilities, bills, webhook, cron, update mode, /accounts |
-| 3 Transactions/tags | Partial: searchable read-only list. TODO table, drawer, edits, tags, rules, changeSets |
+| 3 Transactions/tags | Done: list + tag filter, edit drawer, bulk tag, tags/rules page, changeSets with undo (toast, Settings→History). Rules run on demand; auto-run on sync is Phase 7 |
 | 4 Dashboard/bills | Partial: dashboard cards. TODO bills page, recurring detection, open claims |
 | 5 Chat | Done: read tools, sessions, streaming, charts, Mermaid |
 | 6–10 | Not started (routes and schemas stubbed) |

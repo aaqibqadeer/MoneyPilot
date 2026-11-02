@@ -58,6 +58,14 @@ class MongoColl<T extends { _id: string }> implements Coll<T> {
     const r = await (await this.c()).updateMany(filter, u as Document);
     return { matchedCount: r.matchedCount, modifiedCount: r.modifiedCount };
   }
+  async bulkUpdate(updates: { filter: Filter; update: Update }[]) {
+    if (!updates.length) return 0;
+    const r = await (await this.c()).bulkWrite(
+      updates.map((x) => ({ updateOne: { filter: x.filter, update: x.update as Document } })),
+      { ordered: false },
+    );
+    return r.matchedCount;
+  }
   async deleteOne(filter: Filter) {
     return (await (await this.c()).deleteOne(filter)).deletedCount;
   }

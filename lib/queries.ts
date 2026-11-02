@@ -25,14 +25,17 @@ export async function accountsOverview(userId: string) {
 export interface TxnQuery {
   q?: string;
   accountId?: string;
+  /** Tag id, or "none" for untagged. */
+  tagId?: string;
   page?: number;
   pageSize?: number;
 }
 
-export async function listTransactions(userId: string, { q, accountId, page = 1, pageSize = 50 }: TxnQuery) {
+export async function listTransactions(userId: string, { q, accountId, tagId, page = 1, pageSize = 50 }: TxnQuery) {
   const db = repos(userId);
   const filter: Record<string, unknown> = { deletedAt: { $exists: false } };
   if (accountId) filter.accountId = accountId;
+  if (tagId) filter.tagIds = tagId === "none" ? { $size: 0 } : tagId;
   if (q) {
     const rx = { $regex: q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), $options: "i" };
     filter.$or = [{ name: rx }, { merchant: rx }, { description: rx }, { notes: rx }];
@@ -91,4 +94,31 @@ export async function dashboardSummary(userId: string) {
     lastSyncedAt: items[0]?.lastSyncedAt,
     hasItems: items.length > 0,
   };
+}
+
+/** Tags with how many live transactions use each, plus the rules. */
+export async function tagsOverview(userId: string) {
+  const db = repos(userId);
+  const [tags, counts, rules] = await Promise.all([
+    db.tags.find({}, { sort: { name: 1 } }),
+    db.transactions.aggregate<{ _id: string; n: number }>([
+      { $match: { deletedAt: { $exists: false } } },
+      { $unwind: "$tagIds" },
+      { $group: { _id: "$tagIds", n: { $sum: 1 } } },
+    ]),
+    db.tagRules.find({}, { sort: { createdAt: 1 } }),
+  ]);
+  const n = new Map(counts.map((c) => [c._id, c.n]));
+  return { tags: tags.map((t) => ({ ...t, count: n.get(t._id) ?? 0 })), rules };
+}
+
+/** Recent changeSets for Settings → History (ops omitted, only their count). */
+export async function changeHistory(userId: string, limit = 50) {
+  const rows = await repos(userId).changeSets.aggregate<{ _id: string; summary: string; origin: string; status: string; createdAt: Date; appliedAt?: Date; revertedAt?: Date; opCount: number }>([
+    { $match: { status: { $ne: "rejected" } } },
+    { $sort: { createdAt: -1 } },
+    { $limit: limit },
+    { $project: { summary: 1, origin: 1, status: 1, createdAt: 1, appliedAt: 1, revertedAt: 1, opCount: { $size: "$ops" } } },
+  ]);
+  return rows;
 }

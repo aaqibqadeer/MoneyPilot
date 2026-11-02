@@ -83,6 +83,12 @@ export class MemoryColl<T extends { _id: string }> implements Coll<T> {
     return { matchedCount: docs.length, modifiedCount: docs.length };
   }
 
+  async bulkUpdate(updates: { filter: Filter; update: Update }[]) {
+    let n = 0;
+    for (const x of updates) n += (await this.updateOne(x.filter, x.update)).matchedCount;
+    return n;
+  }
+
   async deleteOne(filter: Filter) {
     const doc = this.matches(filter)[0];
     if (!doc) return 0;
