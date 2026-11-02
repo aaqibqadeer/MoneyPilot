@@ -49,7 +49,10 @@ export const env: Env = parsed.success ? parsed.data : schema.parse({});
 /** What is configured. Features check these and degrade gracefully. */
 export const features = {
   db: !!env.MONGODB_URI,
-  plaid: !!(env.PLAID_CLIENT_ID && env.PLAID_SECRET),
+  plaidKeys: !!(env.PLAID_CLIENT_ID && env.PLAID_SECRET),
+  /** Plaid access tokens are encrypted at rest; production refuses the dev-only fallback key. */
+  encryption: !!env.ENCRYPTION_KEY || process.env.NODE_ENV !== "production",
+  plaid: !!(env.PLAID_CLIENT_ID && env.PLAID_SECRET) && (!!env.ENCRYPTION_KEY || process.env.NODE_ENV !== "production"),
   llm: !!env.DEEPSEEK_API_KEY,
   email: !!(env.RESEND_API_KEY && env.EMAIL_FROM),
   blob: !!env.BLOB_READ_WRITE_TOKEN,

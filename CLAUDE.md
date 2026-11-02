@@ -8,6 +8,7 @@ Personal finance app: Plaid bank data in MongoDB, queried mainly through an AI c
 - Keep docs token-minimal. Update §11 Status when a phase lands.
 - Before Next.js work read `node_modules/next/dist/docs/` (Next 16: `proxy.ts` replaces middleware, typed `PageProps`/`LayoutProps`/`RouteContext`).
 - Checks: `pnpm typecheck && pnpm lint && pnpm test` (+ `pnpm test:e2e`).
+- Token economy: fewest tool/MCP calls. Mongo: count/aggregate with filter + projection + limit, never full dumps. Vercel: errors first, logs filtered by time/route/level. Read only the files/lines needed; reason locally and run tests instead of repeated probing. Batch independent calls.
 
 ## 2. Stack
 Next.js 16 App Router, React 19, TS strict, pnpm, Tailwind 4, shadcn/ui (radix), next-themes, MongoDB driver (no Mongoose), Zod 4, SimpleWebAuthn, Plaid, Vercel AI SDK 7 + @ai-sdk/deepseek, Streamdown, Recharts, Vitest, Playwright. Hosted on Vercel.

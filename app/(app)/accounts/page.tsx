@@ -30,7 +30,11 @@ export default async function AccountsPage() {
         <Alert className="mb-6">
           <AlertTriangle />
           <AlertTitle>Plaid isn&apos;t configured</AlertTitle>
-          <AlertDescription>Set PLAID_CLIENT_ID and PLAID_SECRET (sandbox) to connect a bank.</AlertDescription>
+          <AlertDescription>
+            {features.plaidKeys
+              ? "Set ENCRYPTION_KEY (32 bytes, e.g. `openssl rand -base64 32`) so bank tokens can be stored encrypted, then redeploy."
+              : "Set PLAID_CLIENT_ID and PLAID_SECRET (sandbox) to connect a bank."}
+          </AlertDescription>
         </Alert>
       )}
 

@@ -4,6 +4,7 @@ import { HttpError, route } from "@/lib/api";
 import { requireApiUser } from "@/lib/auth/session";
 import { getBankProvider } from "@/lib/bank/plaid";
 import { updateLinkToken } from "@/lib/bank/sync";
+import { features } from "@/lib/env";
 import { rateLimit } from "@/lib/rate-limit";
 
 const body = z.object({ itemId: z.string().optional() });
@@ -13,6 +14,8 @@ export const POST = route(async (req: Request) => {
   await rateLimit("plaid:link", 20, 60);
   const p = getBankProvider();
   if (!p) throw new HttpError(503, "Plaid is not configured.");
+  // Check before Link so we never create a Plaid Item whose token we can't store.
+  if (!features.encryption) throw new HttpError(503, "ENCRYPTION_KEY is not set, so bank tokens can't be stored.");
   const { itemId } = body.parse(await req.json().catch(() => ({})));
   const linkToken = itemId ? await updateLinkToken(user._id, itemId) : await p.createLinkToken(user._id);
   return NextResponse.json({ linkToken });
