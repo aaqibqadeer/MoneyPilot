@@ -20,7 +20,7 @@ export function readTools(userId: string) {
 
   return {
     getAccounts: tool({
-      description: "List bank accounts with balances (dollars), type, credit limit and institution.",
+      description: "List bank accounts with balances (dollars), type, credit limit and institution. archived: true = bank disconnected, balance frozen at archivedOn, history still searchable.",
       inputSchema: z.object({}),
       execute: async () => {
         const [accounts, items] = await Promise.all([db.accounts.find({}), db.items.find({})]);
@@ -34,6 +34,7 @@ export function readTools(userId: string) {
           currentBalance: dollars(a.currentCents),
           available: dollars(a.availableCents),
           creditLimit: dollars(a.limitCents),
+          ...(a.archivedAt ? { archived: true, archivedOn: a.archivedAt.toISOString().slice(0, 10) } : {}),
         }));
       },
     }),
