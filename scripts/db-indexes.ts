@@ -7,7 +7,7 @@ async function main() {
     console.log("MONGODB_URI not set; nothing to index (demo mode uses memory).");
     return;
   }
-  const client = await new MongoClient(uri).connect();
+  const client = await new MongoClient(uri, { serverSelectionTimeoutMS: 10000 }).connect();
   const db = client.db(process.env.MONGODB_DB || "moneypilot");
   for (const [name, specs] of Object.entries(INDEXES)) {
     if (!specs?.length) continue;
@@ -17,7 +17,9 @@ async function main() {
   await client.close();
 }
 
+// --soft (used by the Vercel build): report but never fail the deploy.
+const soft = process.argv.includes("--soft");
 main().catch((e) => {
-  console.error(e);
-  process.exit(1);
+  console.error(soft ? `db:indexes skipped: ${e instanceof Error ? e.message : e}` : e);
+  process.exit(soft ? 0 : 1);
 });
