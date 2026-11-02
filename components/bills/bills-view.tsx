@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { CalendarDays, Check, ChevronLeft, ChevronRight, List, Loader2, Plus, Repeat, Trash2 } from "lucide-react";
 import { createBill, deleteBill, markBillPaid } from "@/app/actions/edits";
+import { CancelDialog } from "@/components/assist/assist-dialog";
 import { runAction } from "@/components/changes/run-action";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -41,7 +42,7 @@ const today = () => new Date(new Date().toISOString().slice(0, 10));
 /** Paid wins; otherwise anything due before today is overdue. */
 const statusOf = (b: BillRow) => (b.status === "paid" ? "paid" : new Date(b.dueDate) < today() ? "overdue" : "upcoming");
 
-export function BillsView({ bills, recurring, currency }: { bills: BillRow[]; recurring: RecurringRow[]; currency: string }) {
+export function BillsView({ bills, recurring, currency, userName }: { bills: BillRow[]; recurring: RecurringRow[]; currency: string; userName?: string }) {
   const [view, setView] = useState<"list" | "calendar">("list");
   return (
     <div className="space-y-4">
@@ -55,13 +56,13 @@ export function BillsView({ bills, recurring, currency }: { bills: BillRow[]; re
         </div>
         <BillDialog />
       </div>
-      {view === "list" ? <BillList bills={bills} currency={currency} /> : <BillCalendar bills={bills} currency={currency} />}
-      <Recurring rows={recurring} currency={currency} />
+      {view === "list" ? <BillList bills={bills} currency={currency} userName={userName} /> : <BillCalendar bills={bills} currency={currency} />}
+      <Recurring rows={recurring} currency={currency} userName={userName} />
     </div>
   );
 }
 
-function BillList({ bills, currency }: { bills: BillRow[]; currency: string }) {
+function BillList({ bills, currency, userName }: { bills: BillRow[]; currency: string; userName?: string }) {
   const groups = (["overdue", "upcoming", "paid"] as const).map((s) => ({ s, rows: bills.filter((b) => statusOf(b) === s) }));
   if (!bills.length) return <Card><CardContent className="text-muted-foreground text-sm">No bills yet. Add one, or track a recurring charge below.</CardContent></Card>;
   return (
@@ -70,7 +71,7 @@ function BillList({ bills, currency }: { bills: BillRow[]; currency: string }) {
         <Card key={s}>
           <CardHeader><CardTitle className="text-base capitalize">{s} <span className="text-muted-foreground font-normal">· {money(rows.reduce((t, b) => t + (b.amountCents ?? 0), 0), currency)}</span></CardTitle></CardHeader>
           <CardContent>
-            <ul className="divide-y">{(s === "paid" ? [...rows].reverse() : rows).map((b) => <BillItem key={`${b._id}-${b.status}`} b={b} currency={currency} />)}</ul>
+            <ul className="divide-y">{(s === "paid" ? [...rows].reverse() : rows).map((b) => <BillItem key={`${b._id}-${b.status}`} b={b} currency={currency} userName={userName} />)}</ul>
           </CardContent>
         </Card>
       ))}
@@ -78,7 +79,7 @@ function BillList({ bills, currency }: { bills: BillRow[]; currency: string }) {
   );
 }
 
-function BillItem({ b, currency }: { b: BillRow; currency: string }) {
+function BillItem({ b, currency, userName }: { b: BillRow; currency: string; userName?: string }) {
   const [pending, start] = useTransition();
   const st = statusOf(b);
   return (
@@ -100,6 +101,7 @@ function BillItem({ b, currency }: { b: BillRow; currency: string }) {
       ) : (
         <Badge variant="secondary">Paid</Badge>
       )}
+      {b.source !== "liability" && b.recurrence !== "none" && st !== "paid" && <CancelDialog merchant={b.name} amountCents={b.amountCents} currency={currency} account={b.account} userName={userName} />}
       {b.source !== "liability" && (
         <Button size="icon-sm" variant="ghost" aria-label="Delete bill" disabled={pending} onClick={() => start(async () => void (await runAction(deleteBill(b._id), `Deleted ${b.name}`)))}>
           <Trash2 />
@@ -150,22 +152,22 @@ function BillCalendar({ bills, currency }: { bills: BillRow[]; currency: string 
   );
 }
 
-function Recurring({ rows, currency }: { rows: RecurringRow[]; currency: string }) {
+function Recurring({ rows, currency, userName }: { rows: RecurringRow[]; currency: string; userName?: string }) {
   return (
     <Card>
       <CardHeader>
         <CardTitle className="text-base">Detected recurring charges</CardTitle>
-        <CardDescription>Merchants that charge you on a regular schedule. Track one to get it on your bills list.</CardDescription>
+        <CardDescription>Merchants that charge you on a regular schedule. Track one to get it on your bills list, or Cancel to get its cancel page and a ready-to-send email.</CardDescription>
       </CardHeader>
       <CardContent>
         {!rows.length && <p className="text-muted-foreground text-sm">Nothing new detected.</p>}
-        <ul className="divide-y">{rows.map((r) => <RecurringItem key={r.key} r={r} currency={currency} />)}</ul>
+        <ul className="divide-y">{rows.map((r) => <RecurringItem key={r.key} r={r} currency={currency} userName={userName} />)}</ul>
       </CardContent>
     </Card>
   );
 }
 
-function RecurringItem({ r, currency }: { r: RecurringRow; currency: string }) {
+function RecurringItem({ r, currency, userName }: { r: RecurringRow; currency: string; userName?: string }) {
   const [pending, start] = useTransition();
   const track = () => start(async () => void (await runAction(createBill({ name: r.name, amountCents: r.amountCents, dueDate: r.nextDate, recurrence: r.recurrence, ...(r.accountId ? { accountId: r.accountId } : {}) }, "recurring"), `Tracking ${r.name}`)));
   return (
@@ -175,6 +177,7 @@ function RecurringItem({ r, currency }: { r: RecurringRow; currency: string }) {
         <p className="text-muted-foreground text-xs first-letter:uppercase">{r.recurrence} · {r.count} charges · next ~{shortDate(r.nextDate)}{r.account && ` · ${r.account}`}</p>
       </div>
       <span className="tabular text-sm">{money(r.amountCents, currency)}</span>
+      <CancelDialog merchant={r.name} amountCents={r.amountCents} currency={currency} account={r.account} userName={userName} />
       <Button size="sm" variant="outline" disabled={pending} onClick={track}>{pending ? <Loader2 className="animate-spin" /> : <Plus />}Track</Button>
     </li>
   );

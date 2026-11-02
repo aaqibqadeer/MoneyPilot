@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { Loader2, Tags, X } from "lucide-react";
 import { bulkTag, createRule, saveTransaction } from "@/app/actions/edits";
 import { toast } from "sonner";
+import { DisputeDialog } from "@/components/assist/assist-dialog";
 import { runAction } from "@/components/changes/run-action";
 import { TagChip, TagPicker, type TagLite } from "@/components/tags/tag-picker";
 import { Badge } from "@/components/ui/badge";
@@ -31,10 +32,13 @@ export interface TxnRowData {
   tagIds: string[];
   pending: boolean;
   source: string;
+  accountMask?: string;
+  accountType?: string;
+  institution?: string;
 }
 
 /** Transactions list with selection, bulk tagging and an edit drawer. */
-export function TransactionsTable({ rows, tags }: { rows: TxnRowData[]; tags: TagLite[] }) {
+export function TransactionsTable({ rows, tags, userName }: { rows: TxnRowData[]; tags: TagLite[]; userName?: string }) {
   const [picked, setSelected] = useState<string[]>([]);
   const [openId, setOpenId] = useState<string | null>(null);
   // derived from rows so the drawer and selection stay in sync after the page refreshes
@@ -83,7 +87,7 @@ export function TransactionsTable({ rows, tags }: { rows: TxnRowData[]; tags: Ta
       </Card>
 
       <Sheet open={!!open} onOpenChange={(o) => !o && setOpenId(null)}>
-        <SheetContent className="overflow-y-auto">{open && <TxnEditor key={`${open._id}-${open.tagIds.join()}-${open.description}-${open.notes}`} t={open} tags={tags} onDone={() => setOpenId(null)} />}</SheetContent>
+        <SheetContent className="overflow-y-auto">{open && <TxnEditor key={`${open._id}-${open.tagIds.join()}-${open.description}-${open.notes}`} t={open} tags={tags} userName={userName} onDone={() => setOpenId(null)} />}</SheetContent>
       </Sheet>
       <Sheet open={bulkOpen} onOpenChange={setBulkOpen}>
         <SheetContent>{bulkOpen && <BulkTagger ids={selected} rows={rows} tags={tags} onDone={() => { setBulkOpen(false); setSelected([]); }} />}</SheetContent>
@@ -92,7 +96,7 @@ export function TransactionsTable({ rows, tags }: { rows: TxnRowData[]; tags: Ta
   );
 }
 
-function TxnEditor({ t, tags, onDone }: { t: TxnRowData; tags: TagLite[]; onDone: () => void }) {
+function TxnEditor({ t, tags, userName, onDone }: { t: TxnRowData; tags: TagLite[]; userName?: string; onDone: () => void }) {
   const [description, setDescription] = useState(t.description ?? "");
   const [notes, setNotes] = useState(t.notes ?? "");
   const [tagIds, setTagIds] = useState(t.tagIds);
@@ -147,6 +151,12 @@ function TxnEditor({ t, tags, onDone }: { t: TxnRowData; tags: TagLite[]; onDone
           <Label>Tags</Label>
           <TagPicker tags={tags} value={tagIds} onChange={setTagIds} />
         </div>
+        {t.amountCents > 0 && !t.pending && (
+          <DisputeDialog
+            userName={userName}
+            t={{ _id: t._id, merchant: t.description ?? t.merchant ?? t.name, amountCents: t.amountCents, currency: t.currency, date: t.date, mask: t.accountMask, accountType: t.accountType, institution: t.institution }}
+          />
+        )}
       </div>
       <SheetFooter>
         <Button onClick={save} disabled={!dirty || pending}>{pending && <Loader2 className="animate-spin" />}Save</Button>

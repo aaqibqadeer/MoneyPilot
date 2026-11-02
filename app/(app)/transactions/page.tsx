@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { requireUser } from "@/lib/auth/session";
 import { TransactionsTable } from "@/components/transactions/transactions-table";
+import { repos } from "@/lib/db/repos";
 import { listTransactions } from "@/lib/queries";
 
 export const metadata = { title: "Transactions" };
@@ -17,7 +18,16 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
   const accountId = typeof sp.account === "string" ? sp.account : undefined;
   const tagId = typeof sp.tag === "string" ? sp.tag : undefined;
   const page = Math.max(1, Number(sp.page) || 1);
-  const { rows, total, pageSize, accounts, tags } = await listTransactions(user._id, { q, accountId, tagId, page });
+  const [{ rows, total, pageSize, accounts, tags }, items] = await Promise.all([
+    listTransactions(user._id, { q, accountId, tagId, page }),
+    repos(user._id).items.find({}, { projection: { institutionName: 1 } }),
+  ]);
+  const institution = new Map(items.map((i) => [i._id, i.institutionName]));
+  /** Card mask, type and bank name for the Dispute or refund helper. */
+  const acctInfo = (id?: string) => {
+    const a = acct.get(id ?? "");
+    return a ? { accountMask: a.mask, accountType: a.type, institution: institution.get(a.itemId) } : {};
+  };
   const acct = new Map(accounts.map((a) => [a._id, a]));
   const pages = Math.max(1, Math.ceil(total / pageSize));
   const href = (p: number) =>
@@ -45,10 +55,12 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
       ) : (
         <TransactionsTable
           tags={sorted}
+          userName={user.name}
           rows={rows.map((t) => ({
             _id: t._id, date: new Date(t.date).toISOString(), name: t.name, merchant: t.merchant, description: t.description, notes: t.notes,
             amountCents: t.amountCents, currency: t.currency, account: acct.get(t.accountId ?? "")?.name ?? "Manual", category: t.category,
             categoryDetailed: t.categoryDetailed, tagIds: t.tagIds ?? [], pending: t.pending, source: t.source,
+            ...acctInfo(t.accountId),
           }))}
         />
       )}
