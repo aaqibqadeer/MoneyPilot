@@ -31,7 +31,7 @@ Every user edit (Phase 3+) goes through a changeSet + auditLog so it can be undo
 
 ## 6. AI chat
 - Model: DeepSeek via `LLM_MODEL` (default `deepseek-flash`). Streaming, max 8 tool steps. New session = no prior context.
-- Read tools (`lib/ai/tools.ts`, scoped by session userId): getAccounts, getTags, searchTransactions, getSpendingSummary, getBills, getLiabilities, getClaims, getDocuments, runAnalyticsQuery.
+- Read tools (`lib/ai/tools.ts`, scoped by session userId): getAccounts, getTags, searchTransactions, getSpendingSummary, getBills, getLiabilities, getClaims, getDocuments, getActionHelp, runAnalyticsQuery.
 - runAnalyticsQuery: collection allowlist, stage allowlist, forbidden operators anywhere, forced `$match {userId}` first and inside every $lookup/$facet, ISO strings → Date, `$limit 200`. Tested in `tests/unit/analytics.test.ts`.
 - Write tool (`lib/ai/write-tools.ts`): `proposeChanges` (txn description/notes/tags by ids or `where` filter, new tags, rules) creates a proposed changeSet only; chat card (`components/chat/change-proposal.tsx`) Apply/Discard/Undo. Model never writes and never claims a change before it is applied.
 - Scope: app data + app help only, no web/outside knowledge; off-topic gets a fixed refusal. Tools pass `scopedTools` allowlist (`lib/ai/scope.ts`), tested in `tests/unit/scope.test.ts`.
@@ -63,6 +63,7 @@ Passkeys only (SimpleWebAuthn), signup allowed for the first user or `ALLOW_SIGN
 | 7 Auto-tagging | Done: `lib/autotag.ts`: enabled rules run on synced new txns (applied `autotag` changeSet); /tags "Suggest tags with AI" (batches of 50, Output.object, confidence ≥0.6) → proposed changeSet grouped by tag; edit drawer offers "always tag" rule |
 | 8 Documents/claims | Done: `lib/documents/` (tabular.ts CSV/XLSX mapping, extract.ts PDF text/vision/LLM → Zod records, service.ts upload+dedupe+planImport); /documents upload, /documents/[id] review → `import` changeSet (imported txns `source: import`, `documentId`); /claims with status timeline; chat paperclip + getDocuments. No Blob = parse only, originals not kept |
 | 9 Insights/settings | Done: `lib/insights.ts` (12-month flow, month report: tags vs prev, merchants, biggest); /insights; Settings → Profile, Connections + AI usage, JSON export (`/api/export`, no secrets), delete account (no Plaid item/remove) |
+| Actions | Done: `lib/assist/` cancel pages (known services, app-store billing, search fallback), issuer links, refund/dispute/cancel letters, act-by date; Cancel on /bills recurring, "Dispute or refund" in txn drawer (→ refund claim); chat getActionHelp. Never auto-cancels/files/sends |
 | 10 Hardening | Done: per-request nonce CSP (`lib/csp.ts`, set in proxy.ts, nonce → next-themes), error/not-found/global-error pages. Remaining owner steps: Plaid production switch, set ENCRYPTION_KEY/CRON_SECRET/RESEND/BLOB on Vercel |
 
 ## 12. Env
