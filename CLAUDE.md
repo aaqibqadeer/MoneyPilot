@@ -18,7 +18,7 @@ Next.js 16 App Router, React 19, TS strict, pnpm, Tailwind 4, shadcn/ui (radix),
 - `lib/env.ts` Zod env, all optional; `features` flags. `lib/themes.ts` all colour tokens (one object per theme).
 - `lib/db/`: `schemas.ts` (Zod, all collections), `client.ts` (cached MongoClient, `collection()`), `memory.ts` (mingo in-memory backend for demo mode), `repos.ts` (`repos(userId)`: every query forced to userId), `indexes.ts`, `demo.ts` (seed).
 - `lib/changes.ts` changeSet apply/revert (field whitelist, stale-state check, auditLog); `lib/edits.ts` builds ops (txn edits, tags, rules); `app/actions/edits.ts` server actions.
-- `lib/auth/` sessions + WebAuthn; `proxy.ts` optimistic cookie gate. `lib/bank/` provider + sync. `lib/ai/` model, prompt, tools, analytics guard, chat store.
+- `lib/auth/` sessions + WebAuthn; `proxy.ts` optimistic cookie gate + CSP nonce. `lib/bank/` provider + sync. `lib/ai/` model, prompt, tools, analytics guard, chat store.
 - App code reads data only via `repos(userId)`; raw `collection()` only in auth plumbing, cron and webhooks.
 
 ## 4. Routes
@@ -48,7 +48,7 @@ Upload (≤10 MB) to private Vercel Blob if configured (images, PDF, CSV, XLSX, 
 Tag rules first, then LLM in batches with the user's tags (may suggest new), structured output with confidence → changeSet preview grouped by tag. Corrections offer "always tag <merchant> as <tag>" rules.
 
 ## 10. Security
-Passkeys only (SimpleWebAuthn), signup allowed for the first user or `ALLOW_SIGNUP=true`. DB sessions: random token, SHA-256 stored, httpOnly/Secure/SameSite=Lax cookie, 30-day sliding expiry. Recovery: 10 hashed one-time codes + 15-min single-use email magic link (Phase 1 rest). Rate limits on auth, chat, Plaid. Headers in `next.config.ts` (CSP in Phase 10). No secrets/PII in logs or client bundles. userId scoping in every repo and tool.
+Passkeys only (SimpleWebAuthn), signup allowed for the first user or `ALLOW_SIGNUP=true`. DB sessions: random token, SHA-256 stored, httpOnly/Secure/SameSite=Lax cookie, 30-day sliding expiry. Recovery: 10 hashed one-time codes + 15-min single-use email magic link (Phase 1 rest). Rate limits on auth, chat, Plaid. Headers in `next.config.ts`; CSP with per-request nonce + 'strict-dynamic' from `proxy.ts` (`lib/csp.ts`). No secrets/PII in logs or client bundles. userId scoping in every repo and tool.
 
 ## 11. Status
 | Phase | State |
@@ -63,7 +63,7 @@ Passkeys only (SimpleWebAuthn), signup allowed for the first user or `ALLOW_SIGN
 | 7 Auto-tagging | Done: `lib/autotag.ts`: enabled rules run on synced new txns (applied `autotag` changeSet); /tags "Suggest tags with AI" (batches of 50, Output.object, confidence ≥0.6) → proposed changeSet grouped by tag; edit drawer offers "always tag" rule |
 | 8 Documents/claims | Done: `lib/documents/` (tabular.ts CSV/XLSX mapping, extract.ts PDF text/vision/LLM → Zod records, service.ts upload+dedupe+planImport); /documents upload, /documents/[id] review → `import` changeSet (imported txns `source: import`, `documentId`); /claims with status timeline; chat paperclip + getDocuments. No Blob = parse only, originals not kept |
 | 9 Insights/settings | Done: `lib/insights.ts` (12-month flow, month report: tags vs prev, merchants, biggest); /insights; Settings → Profile, Connections + AI usage, JSON export (`/api/export`, no secrets), delete account (no Plaid item/remove) |
-| 10 | Not started |
+| 10 Hardening | Done: per-request nonce CSP (`lib/csp.ts`, set in proxy.ts, nonce → next-themes), error/not-found/global-error pages. Remaining owner steps: Plaid production switch, set ENCRYPTION_KEY/CRON_SECRET/RESEND/BLOB on Vercel |
 
 ## 12. Env
 See `.env.example`. None required. No `MONGODB_URI` = demo mode (in-memory seeded data, auth bypassed). `ENCRYPTION_KEY` required in production to store Plaid tokens.

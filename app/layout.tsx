@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { Providers } from "@/components/providers";
 import { ThemeStyle } from "@/components/theme-style";
 import { DEFAULT_THEME, isThemeName } from "@/lib/themes";
@@ -30,13 +30,14 @@ export const viewport: Viewport = {
 export default async function RootLayout({ children }: LayoutProps<"/">) {
   const t = (await cookies()).get("mp_theme")?.value;
   const theme = isThemeName(t) ? t : DEFAULT_THEME;
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
   return (
     <html lang="en" data-theme={theme} suppressHydrationWarning className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
       <head>
         <ThemeStyle />
       </head>
       <body className="min-h-full">
-        <Providers>{children}</Providers>
+        <Providers nonce={nonce}>{children}</Providers>
       </body>
     </html>
   );
