@@ -139,6 +139,38 @@ export async function syncUser(userId: string) {
   return Promise.all(items.filter((i) => i.accessTokenEnc !== "demo").map(syncItem));
 }
 
+/** Provider errors that mean the connection is already gone, so local removal can proceed. */
+const GONE = new Set(["ITEM_NOT_FOUND", "INVALID_ACCESS_TOKEN"]);
+
+/**
+ * User-initiated "Remove bank": revokes the connection at Plaid (item/remove), then deletes
+ * the item, its accounts, synced transactions, liabilities and derived bills. Imported or
+ * manual transactions on those accounts are kept (accountId unset). Not undoable.
+ */
+export async function removeItem(userId: string, itemId: string) {
+  const db = repos(userId);
+  const item = await db.items.findOne({ _id: itemId });
+  if (!item) throw new ProviderError("Bank connection not found");
+  const p = getBankProvider();
+  if (p && item.accessTokenEnc !== "demo") {
+    try {
+      await p.removeItem(decrypt(item.accessTokenEnc));
+    } catch (e) {
+      if (!(e instanceof ProviderError && e.code && GONE.has(e.code))) throw e;
+    }
+  }
+  const accountIds = (await db.accounts.find({ itemId }, { projection: { _id: 1 } })).map((a) => a._id);
+  const inAccounts = { accountId: { $in: accountIds } };
+  const txns = await db.transactions.deleteMany({ ...inAccounts, source: "plaid" });
+  await db.transactions.updateMany(inAccounts, { $unset: { accountId: "" } });
+  await db.liabilities.deleteMany(inAccounts);
+  await db.bills.deleteMany({ ...inAccounts, source: "liability" });
+  await db.accounts.deleteMany({ itemId });
+  await db.items.deleteOne({ _id: itemId });
+  await db.auditLog.insert({ action: "bank.remove", detail: { institution: item.institutionName, accounts: accountIds.length, transactions: txns } });
+  return { institution: item.institutionName, transactions: txns };
+}
+
 /** Cron: every item for every user, sequentially to stay gentle on rate limits. */
 export async function syncAllItems() {
   const items = await collection("items").find({ accessTokenEnc: { $ne: "demo" } });

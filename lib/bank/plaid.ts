@@ -126,6 +126,14 @@ export class PlaidProvider implements BankDataProvider {
     return out;
   }
 
+  async removeItem(accessToken: string) {
+    try {
+      await this.api.itemRemove({ access_token: accessToken });
+    } catch (e) {
+      wrap(e);
+    }
+  }
+
   async getLiabilities(accessToken: string): Promise<ProviderLiability[]> {
     try {
       const l = (await this.api.liabilitiesGet({ access_token: accessToken })).data.liabilities;
