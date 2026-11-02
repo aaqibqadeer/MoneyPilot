@@ -171,3 +171,11 @@ export async function openClaims(userId: string) {
   ]);
   return { count: r?.n ?? 0, claimedCents: r?.claimed ?? 0 };
 }
+
+export async function listDocuments(userId: string) {
+  return repos(userId).documents.find({}, { sort: { createdAt: -1 }, limit: 100, projection: { extracted: 0 } });
+}
+
+export async function listClaims(userId: string) {
+  return repos(userId).claims.find({}, { sort: { updatedAt: -1 }, limit: 200 });
+}

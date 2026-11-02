@@ -203,3 +203,54 @@ export async function suggestAutoTags() {
     return { error: "Auto-tagging failed. Try again." };
   }
 }
+
+const claimInput = z.object({
+  title: z.string().trim().min(1).max(120),
+  kind: z.enum(["insurance", "reimbursement", "refund", "warranty", "other"]),
+  counterparty: z.string().trim().max(80).nullable().optional(),
+  status: z.enum(["draft", "submitted", "in_review", "approved", "paid", "denied", "closed"]),
+  claimedCents: z.number().int().min(0).max(1e10).nullable().optional(),
+  approvedCents: z.number().int().min(0).max(1e10).nullable().optional(),
+  paidCents: z.number().int().min(0).max(1e10).nullable().optional(),
+  deadlineAt: z.coerce.date().nullable().optional(),
+  notes: z.string().max(2000).nullable().optional(),
+});
+const STATUS_LABEL: Record<string, string> = { draft: "Draft", submitted: "Submitted", in_review: "In review", approved: "Approved", paid: "Paid", denied: "Denied", closed: "Closed" };
+
+export async function createClaim(input: z.input<typeof claimInput>) {
+  return run(async (userId) => {
+    const c = claimInput.parse(input);
+    const id = newId();
+    const now = new Date();
+    const op = createOp("claims", id, {
+      ...c, transactionIds: [], documentIds: [], timeline: [{ at: now, note: `Created as ${STATUS_LABEL[c.status]}` }], submittedAt: c.status === "draft" ? null : now,
+    });
+    return { id, changeSetId: await commit(userId, `Added claim ${c.title}`, [op]) };
+  });
+}
+
+/** Edits a claim; a status change also lands on its timeline (and sets submittedAt the first time). */
+export async function updateClaim(id: string, input: Partial<z.input<typeof claimInput>>, note?: string) {
+  return run(async (userId) => {
+    const i = claimInput.partial().parse(input);
+    const claim = await repos(userId).claims.byId(idSchema.parse(id));
+    if (!claim) throw new HttpError(404, "Claim not found");
+    const patch: Record<string, unknown> = { ...i };
+    const n = z.string().trim().max(300).optional().parse(note);
+    if ((i.status && i.status !== claim.status) || n) {
+      const entry = [i.status && i.status !== claim.status ? `${STATUS_LABEL[i.status]}` : null, n].filter(Boolean).join(": ");
+      patch.timeline = [...claim.timeline, { at: new Date(), note: entry }];
+      if (i.status && i.status !== "draft" && !claim.submittedAt) patch.submittedAt = new Date();
+    }
+    const op = updateOp("claims", claim as never, patch);
+    return op ? { changeSetId: await commit(userId, `Updated claim ${claim.title}`, [op]) } : {};
+  });
+}
+
+export async function deleteClaim(id: string) {
+  return run(async (userId) => {
+    const claim = await repos(userId).claims.byId(idSchema.parse(id));
+    if (!claim) throw new HttpError(404, "Claim not found");
+    return { changeSetId: await commit(userId, `Deleted claim ${claim.title}`, [deleteOp("claims", claim as never)]) };
+  });
+}

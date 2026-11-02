@@ -11,6 +11,7 @@ export const ALLOWED_CHAT_TOOLS = [
   "getBills",
   "getLiabilities",
   "getClaims",
+  "getDocuments",
   "runAnalyticsQuery",
   "proposeChanges",
 ] as const;
