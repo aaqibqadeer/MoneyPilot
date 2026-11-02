@@ -62,7 +62,8 @@ Passkeys only (SimpleWebAuthn), signup allowed for the first user or `ALLOW_SIGN
 | 6 Chat edits | Done: proposeChanges + diff card, apply/discard/undo |
 | 7 Auto-tagging | Done: `lib/autotag.ts`: enabled rules run on synced new txns (applied `autotag` changeSet); /tags "Suggest tags with AI" (batches of 50, Output.object, confidence ≥0.6) → proposed changeSet grouped by tag; edit drawer offers "always tag" rule |
 | 8 Documents/claims | Done: `lib/documents/` (tabular.ts CSV/XLSX mapping, extract.ts PDF text/vision/LLM → Zod records, service.ts upload+dedupe+planImport); /documents upload, /documents/[id] review → `import` changeSet (imported txns `source: import`, `documentId`); /claims with status timeline; chat paperclip + getDocuments. No Blob = parse only, originals not kept |
-| 9–10 | Not started |
+| 9 Insights/settings | Done: `lib/insights.ts` (12-month flow, month report: tags vs prev, merchants, biggest); /insights; Settings → Profile, Connections + AI usage, JSON export (`/api/export`, no secrets), delete account (no Plaid item/remove) |
+| 10 | Not started |
 
 ## 12. Env
 See `.env.example`. None required. No `MONGODB_URI` = demo mode (in-memory seeded data, auth bypassed). `ENCRYPTION_KEY` required in production to store Plaid tokens.
