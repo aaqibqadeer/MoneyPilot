@@ -9,7 +9,7 @@ import { chatStore } from "@/lib/ai/chat-store";
 import { chatModel } from "@/lib/ai/model";
 import { systemPrompt } from "@/lib/ai/prompt";
 import { readTools } from "@/lib/ai/tools";
-import { messageMetadataSchema, type ChatUIMessage } from "@/lib/ai/types";
+import { incomingMetadataSchema, type ChatUIMessage } from "@/lib/ai/types";
 import { requireApiUser } from "@/lib/auth/session";
 import { env } from "@/lib/env";
 import { rateLimit } from "@/lib/rate-limit";
@@ -34,7 +34,7 @@ export const POST = route(async (req: Request) => {
 
   let messages: ChatUIMessage[];
   try {
-    messages = await validateUIMessages<ChatUIMessage>({ messages: raw, tools, metadataSchema: messageMetadataSchema });
+    messages = await validateUIMessages<ChatUIMessage>({ messages: raw, tools, metadataSchema: incomingMetadataSchema });
   } catch (e) {
     if (e instanceof TypeValidationError) throw new HttpError(400, "Invalid chat history");
     throw e;

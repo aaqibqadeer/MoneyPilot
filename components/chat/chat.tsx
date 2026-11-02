@@ -31,7 +31,7 @@ const TOOL_LABEL: Record<string, string> = {
   runAnalyticsQuery: "Ran an analysis",
 };
 
-const textOf = (m: ChatUIMessage) => m.parts.map((p) => (p.type === "text" ? p.text : "")).join("");
+const textOf = (m: ChatUIMessage) => m.parts.flatMap((p) => (p.type === "text" ? [p.text] : [])).join("\n\n");
 
 export function Chat({ id, initialMessages, aiReady }: { id: string; initialMessages: ChatUIMessage[]; aiReady: boolean }) {
   const [input, setInput] = useState("");

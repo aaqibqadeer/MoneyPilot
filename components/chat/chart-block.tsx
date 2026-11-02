@@ -12,7 +12,9 @@ const chartSpec = z.object({
   xKey: z.string().optional(),
 });
 
-const COLORS = ["var(--chart-1)", "var(--chart-2)", "var(--chart-3)", "var(--chart-4)", "var(--chart-5)"];
+const BASE = [1, 2, 3, 4, 5].map((n) => `var(--chart-${n})`);
+/** 10 distinct colours: the 5 theme chart tokens, then darker mixes of them. */
+const COLORS = [...BASE, ...BASE.map((c) => `color-mix(in oklch, ${c} 60%, var(--foreground))`)];
 const fmt = (v: unknown) => (typeof v === "number" ? v.toLocaleString("en-US", { maximumFractionDigits: 2 }) : String(v));
 
 /** Renders ```chart JSON blocks from the model. Invalid JSON falls back to the raw code. */
@@ -26,7 +28,11 @@ export function ChartBlock({ code, isIncomplete }: { code: string; isIncomplete:
   }
   const xKey = spec.xKey ?? "label";
   const series = spec.series ?? Object.keys(spec.data[0]).filter((k) => k !== xKey && typeof spec.data[0][k] === "number").map((key) => ({ key, label: key }));
-  const config: ChartConfig = Object.fromEntries(series.map((s, i) => [s.key, { label: s.label ?? s.key, color: COLORS[i % COLORS.length] }]));
+  const config: ChartConfig =
+    spec.type === "pie"
+      ? // pie legend/tooltip look up each slice by its name, so key the config by slice label
+        Object.fromEntries(spec.data.map((d, i) => [String(d[xKey]), { label: String(d[xKey]), color: COLORS[i % COLORS.length] }]))
+      : Object.fromEntries(series.map((s, i) => [s.key, { label: s.label ?? s.key, color: COLORS[i % COLORS.length] }]));
 
   return (
     <figure className="bg-card my-3 rounded-xl border p-3">

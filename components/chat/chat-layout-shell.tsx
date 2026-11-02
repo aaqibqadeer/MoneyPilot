@@ -15,7 +15,7 @@ export function ChatLayoutShell({ children }: { children: React.ReactNode }) {
         <SessionList />
       </aside>
       <div className="relative flex min-w-0 flex-1 flex-col">
-        <Button variant="ghost" size="sm" className="absolute top-2 left-2 z-10 md:hidden" onClick={() => setOpen(true)}>
+        <Button variant="ghost" size="sm" className="bg-background/80 absolute top-2 left-2 z-10 backdrop-blur md:hidden" onClick={() => setOpen(true)}>
           <History /> Chats
         </Button>
         {children}
