@@ -1,4 +1,5 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "pnpm db:indexes --soft && pnpm build",
   "crons": [{ "path": "/api/cron/sync", "schedule": "0 9 * * *" }]
 }
