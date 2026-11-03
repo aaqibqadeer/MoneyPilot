@@ -130,6 +130,8 @@ export const billSchema = z.object({
   status: z.enum(["upcoming", "paid", "overdue"]).default("upcoming"),
   recurrence: z.enum(["none", "weekly", "monthly", "yearly"]).default("none"),
   paidTransactionId: z.string().optional(),
+  /** Archived instead of deleted (chat "remove"): hidden from lists, still readable. */
+  archivedAt: date.optional(),
 });
 
 export const tagSchema = z.object({
@@ -163,6 +165,7 @@ export const claimSchema = z.object({
   documentIds: z.array(id).default([]),
   timeline: z.array(z.object({ at: date, note: z.string() })).default([]),
   notes: z.string().optional(),
+  archivedAt: date.optional(),
 });
 
 export const documentSchema = z.object({

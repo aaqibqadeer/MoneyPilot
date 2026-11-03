@@ -12,8 +12,8 @@ export const EDITABLE = {
   transactions: ["description", "notes", "tagIds"],
   tags: ["name", "color", "parentId"],
   tagRules: ["field", "match", "pattern", "tagIds", "enabled"],
-  bills: ["name", "amountCents", "dueDate", "source", "accountId", "status", "recurrence", "paidTransactionId"],
-  claims: ["title", "kind", "counterparty", "status", "claimedCents", "approvedCents", "paidCents", "submittedAt", "deadlineAt", "transactionIds", "documentIds", "timeline", "notes"],
+  bills: ["name", "amountCents", "dueDate", "source", "accountId", "status", "recurrence", "paidTransactionId", "archivedAt"],
+  claims: ["title", "kind", "counterparty", "status", "claimedCents", "approvedCents", "paidCents", "submittedAt", "deadlineAt", "transactionIds", "documentIds", "timeline", "notes", "archivedAt"],
 } as const;
 export type Editable = keyof typeof EDITABLE;
 /** Collections whose docs a changeSet may create or delete (transactions are only edited). */

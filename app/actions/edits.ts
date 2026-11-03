@@ -8,7 +8,7 @@ import { HttpError } from "@/lib/api";
 import { applyChangeSet, commit, createOp, deleteOp, rejectChangeSet, revertChangeSet, updateOp } from "@/lib/changes";
 import { newId } from "@/lib/db/client";
 import { repos } from "@/lib/db/repos";
-import { escapeRx, planBillPaid, planRuleApply, planTagCreate, planTagDelete, planTransactionEdits, ruleRegex } from "@/lib/edits";
+import { escapeRx, planBillPaid, planClaimCreate, planClaimUpdate, planRuleApply, planTagCreate, planTagDelete, planTransactionEdits, ruleRegex } from "@/lib/edits";
 
 /** Server actions for user edits. Every write goes through a changeSet (undoable, audited). */
 
@@ -218,16 +218,10 @@ const claimInput = z.object({
   notes: z.string().max(2000).nullable().optional(),
   transactionIds: z.array(z.string().max(64)).max(20).optional(),
 });
-const STATUS_LABEL: Record<string, string> = { draft: "Draft", submitted: "Submitted", in_review: "In review", approved: "Approved", paid: "Paid", denied: "Denied", closed: "Closed" };
-
 export async function createClaim(input: z.input<typeof claimInput>) {
   return run(async (userId) => {
     const c = claimInput.parse(input);
-    const id = newId();
-    const now = new Date();
-    const op = createOp("claims", id, {
-      ...c, transactionIds: c.transactionIds ?? [], documentIds: [], timeline: [{ at: now, note: `Created as ${STATUS_LABEL[c.status]}` }], submittedAt: c.status === "draft" ? null : now,
-    });
+    const { id, op } = planClaimCreate(c);
     return { id, changeSetId: await commit(userId, `Added claim ${c.title}`, [op]) };
   });
 }
@@ -238,14 +232,7 @@ export async function updateClaim(id: string, input: Partial<z.input<typeof clai
     const i = claimInput.partial().parse(input);
     const claim = await repos(userId).claims.byId(idSchema.parse(id));
     if (!claim) throw new HttpError(404, "Claim not found");
-    const patch: Record<string, unknown> = { ...i };
-    const n = z.string().trim().max(300).optional().parse(note);
-    if ((i.status && i.status !== claim.status) || n) {
-      const entry = [i.status && i.status !== claim.status ? `${STATUS_LABEL[i.status]}` : null, n].filter(Boolean).join(": ");
-      patch.timeline = [...claim.timeline, { at: new Date(), note: entry }];
-      if (i.status && i.status !== "draft" && !claim.submittedAt) patch.submittedAt = new Date();
-    }
-    const op = updateOp("claims", claim as never, patch);
+    const op = planClaimUpdate(claim, i, z.string().trim().max(300).optional().parse(note));
     return op ? { changeSetId: await commit(userId, `Updated claim ${claim.title}`, [op]) } : {};
   });
 }
