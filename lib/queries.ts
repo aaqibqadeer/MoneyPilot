@@ -88,7 +88,7 @@ export async function dashboardSummary(userId: string) {
       { $sort: { total: -1 } },
       { $limit: 6 },
     ]),
-    db.bills.find({ status: { $ne: "paid" }, dueDate: { $gte: new Date(now.getTime() - 86400000), $lte: in30 } }, { sort: { dueDate: 1 }, limit: 6 }),
+    db.bills.find({ status: { $ne: "paid" }, archivedAt: { $exists: false }, dueDate: { $gte: new Date(now.getTime() - 86400000), $lte: in30 } }, { sort: { dueDate: 1 }, limit: 6 }),
     db.transactions.find({ deletedAt: { $exists: false } }, { sort: { date: -1 }, limit: 6, projection: { raw: 0 } }),
     db.items.find({ status: { $ne: "archived" } }, { sort: { lastSyncedAt: -1 } }),
   ]);
@@ -178,13 +178,14 @@ export async function billsOverview(userId: string) {
     }),
     now,
   ).filter((c) => !tracked.has(c.key) && !tracked.has(merchantKey(c.name)));
-  return { bills, recurring, accountNames };
+  // archived bills still count as tracked, so their charge isn't suggested again
+  return { bills: bills.filter((b) => !b.archivedAt), recurring, accountNames };
 }
 
 /** Claims not yet settled, for the dashboard card. */
 export async function openClaims(userId: string) {
   const [r] = await repos(userId).claims.aggregate<{ n: number; claimed: number }>([
-    { $match: { status: { $in: ["draft", "submitted", "in_review", "approved"] } } },
+    { $match: { status: { $in: ["draft", "submitted", "in_review", "approved"] }, archivedAt: { $exists: false } } },
     { $group: { _id: null, n: { $sum: 1 }, claimed: { $sum: { $ifNull: ["$claimedCents", 0] } } } },
   ]);
   return { count: r?.n ?? 0, claimedCents: r?.claimed ?? 0 };
@@ -195,7 +196,7 @@ export async function listDocuments(userId: string) {
 }
 
 export async function listClaims(userId: string) {
-  return repos(userId).claims.find({}, { sort: { updatedAt: -1 }, limit: 200 });
+  return repos(userId).claims.find({ archivedAt: { $exists: false } }, { sort: { updatedAt: -1 }, limit: 200 });
 }
 
 /** Chat token usage, this month and all time. */

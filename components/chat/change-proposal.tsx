@@ -10,9 +10,11 @@ import { Button } from "@/components/ui/button";
 export interface ProposalOutput {
   changeSetId?: string;
   summary?: string;
-  counts?: { transactions: number; newTags: number; rules: number };
+  counts?: { transactions: number; newTags: number; rules: number; records?: number };
   newTags?: string[];
   rules?: string[];
+  /** Claims, bills, manual transactions, tag and rule edits. */
+  records?: { type: "transaction" | "tag" | "rule" | "claim" | "bill"; action: "add" | "edit" | "archive" | "restore"; title: string; changes: string[] }[];
   preview?: { date: string | null; description: string; amount: number | null; changes: string[] }[];
   /** Auto-tag previews group by tag instead of listing transactions. */
   groups?: { tag: string; isNew: boolean; count: number; confidence: number; examples: string[] }[];
@@ -20,6 +22,8 @@ export interface ProposalOutput {
 }
 
 type Status = "proposed" | "applied" | "rejected" | "reverted";
+const ACTION = { add: "New", edit: "Edit", archive: "Archive", restore: "Restore" } as const;
+const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? "" : "s"}`;
 const usd = (n: number | null) => (n === null ? "" : `${n < 0 ? "+" : ""}${Math.abs(n).toLocaleString("en-US", { style: "currency", currency: "USD" })}`);
 
 /** Diff card for a proposeChanges result: Apply / Discard, then Undo. Status is read live so reloaded chats stay correct. */
@@ -47,13 +51,20 @@ export function ChangeProposal({ out, onSettled }: { out: ProposalOutput; onSett
     });
 
   const c = out.counts;
+  const byType = new Map<string, number>();
+  for (const r of out.records ?? []) byType.set(r.type, (byType.get(r.type) ?? 0) + 1);
   return (
     <div className="bg-card my-2 overflow-hidden rounded-xl border">
       <div className="flex items-start justify-between gap-2 border-b px-3 py-2">
         <div className="min-w-0">
           <p className="text-sm font-medium">{out.summary}</p>
           <p className="text-muted-foreground text-xs">
-            {[c?.transactions ? `${c.transactions} transaction${c.transactions === 1 ? "" : "s"}` : null, c?.newTags ? `${c.newTags} new tag${c.newTags === 1 ? "" : "s"}` : null, c?.rules ? `${c.rules} rule${c.rules === 1 ? "" : "s"}` : null].filter(Boolean).join(" · ")}
+            {[
+              c?.transactions ? plural(c.transactions, "transaction") : null,
+              c?.newTags ? plural(c.newTags, "new tag") : null,
+              c?.rules ? plural(c.rules, "rule") : null,
+              ...[...byType].map(([t, n]) => plural(n, t === "transaction" ? "manual transaction" : t)),
+            ].filter(Boolean).join(" · ")}
           </p>
         </div>
         {status && status !== "proposed" && <Badge variant={status === "applied" ? "default" : "secondary"} className="shrink-0 capitalize">{status === "reverted" ? "Undone" : status === "rejected" ? "Discarded" : "Applied"}</Badge>}
@@ -62,6 +73,19 @@ export function ChangeProposal({ out, onSettled }: { out: ProposalOutput; onSett
         <div className="space-y-0.5 border-b px-3 py-2 text-xs">
           {out.newTags?.map((t) => <p key={t}>New tag <span className="font-medium">{t}</span></p>)}
           {out.rules?.map((r) => <p key={r}>New rule: {r}</p>)}
+        </div>
+      ) : null}
+      {out.records?.length ? (
+        <div className="max-h-72 divide-y overflow-y-auto border-b">
+          {out.records.map((r, i) => (
+            <div key={i} className="px-3 py-2 text-xs">
+              <p className="flex min-w-0 items-center gap-2">
+                <Badge variant={r.action === "archive" ? "secondary" : "outline"} className="h-4 shrink-0 px-1 text-[10px]">{ACTION[r.action]} {r.type}</Badge>
+                <span className="truncate font-medium">{r.title}</span>
+              </p>
+              {r.changes.length ? <p className="text-muted-foreground mt-0.5 break-words">{r.changes.join(" · ")}</p> : null}
+            </div>
+          ))}
         </div>
       ) : null}
       {out.groups?.length ? (

@@ -43,9 +43,16 @@ export function readTools(userId: string, profile: { name?: string; email?: stri
     }),
 
     getTags: tool({
-      description: "List the user's tags (names, colors, parent).",
+      description: "List the user's tags (id, name, color, parent) and tag rules (id, pattern, tags, enabled).",
       inputSchema: z.object({}),
-      execute: async () => (await db.tags.find({})).map((t) => ({ id: t._id, name: t.name, color: t.color, parentId: t.parentId })),
+      execute: async () => {
+        const [tags, rules] = await Promise.all([db.tags.find({}), db.tagRules.find({}, { limit: 100 })]);
+        const name = new Map(tags.map((t) => [t._id, t.name]));
+        return {
+          tags: tags.map((t) => ({ id: t._id, name: t.name, color: t.color, parentId: t.parentId })),
+          rules: rules.map((r) => ({ id: r._id, field: r.field, match: r.match, pattern: r.pattern, tags: r.tagIds.map((i) => name.get(i) ?? "?"), enabled: r.enabled })),
+        };
+      },
     }),
 
     searchTransactions: tool({
@@ -141,13 +148,13 @@ export function readTools(userId: string, profile: { name?: string; email?: stri
     }),
 
     getBills: tool({
-      description: "Upcoming and recent bills and card payment due dates (from liabilities, manual bills, recurring).",
-      inputSchema: z.object({ from: isoDate.optional(), to: isoDate.optional() }),
-      execute: async ({ from, to }) => {
-        const f: Record<string, unknown> = {};
+      description: "Upcoming and recent bills and card payment due dates (from liabilities, manual bills, recurring). Archived bills only when includeArchived.",
+      inputSchema: z.object({ from: isoDate.optional(), to: isoDate.optional(), includeArchived: z.boolean().optional() }),
+      execute: async ({ from, to, includeArchived }) => {
+        const f: Record<string, unknown> = includeArchived ? {} : { archivedAt: { $exists: false } };
         if (from || to) f.dueDate = { ...(from ? { $gte: new Date(from) } : {}), ...(to ? { $lte: endOfDay(to) } : {}) };
         const bills = await db.bills.find(f, { sort: { dueDate: 1 }, limit: 50 });
-        return bills.map((b) => ({ name: b.name, dueDate: day(b.dueDate), amount: dollars(b.amountCents), status: b.status, source: b.source }));
+        return bills.map((b) => ({ id: b._id, name: b.name, dueDate: day(b.dueDate), amount: dollars(b.amountCents), status: b.status, source: b.source, recurrence: b.recurrence, accountId: b.accountId, ...(b.archivedAt ? { archived: true } : {}) }));
       },
     }),
 
@@ -189,11 +196,15 @@ export function readTools(userId: string, profile: { name?: string; email?: stri
     }),
 
     getClaims: tool({
-      description: "Insurance claims, reimbursements and refunds with status and amounts.",
-      inputSchema: z.object({ status: z.string().optional() }),
-      execute: async ({ status }) => {
-        const claims = await db.claims.find(status ? { status } : {}, { sort: { updatedAt: -1 }, limit: 50 });
-        return claims.map((c) => ({ id: c._id, title: c.title, kind: c.kind, status: c.status, counterparty: c.counterparty, claimed: dollars(c.claimedCents), approved: dollars(c.approvedCents), paid: dollars(c.paidCents), deadline: day(c.deadlineAt) }));
+      description: "Insurance claims, reimbursements and refunds with status, amounts, notes and timeline. Archived claims only when includeArchived.",
+      inputSchema: z.object({ status: z.string().optional(), includeArchived: z.boolean().optional() }),
+      execute: async ({ status, includeArchived }) => {
+        const f: Record<string, unknown> = { ...(status ? { status } : {}), ...(includeArchived ? {} : { archivedAt: { $exists: false } }) };
+        const claims = await db.claims.find(f, { sort: { updatedAt: -1 }, limit: 50 });
+        return claims.map((c) => ({
+          id: c._id, title: c.title, kind: c.kind, status: c.status, counterparty: c.counterparty, claimed: dollars(c.claimedCents), approved: dollars(c.approvedCents), paid: dollars(c.paidCents),
+          deadline: day(c.deadlineAt), notes: c.notes, transactionIds: c.transactionIds, timeline: c.timeline.slice(-5).map((e) => `${day(e.at)} ${e.note}`), ...(c.archivedAt ? { archived: true } : {}),
+        }));
       },
     }),
 

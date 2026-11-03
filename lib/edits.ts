@@ -124,3 +124,33 @@ export async function planBillPaid(userId: string, billId: string): Promise<{ na
   }
   return { name: bill.name, ops };
 }
+
+export const CLAIM_STATUS_LABEL: Record<string, string> = { draft: "Draft", submitted: "Submitted", in_review: "In review", approved: "Approved", paid: "Paid", denied: "Denied", closed: "Closed" };
+
+/** New claim with its first timeline entry. */
+export function planClaimCreate(c: Values & { title: string; status: Doc<"claims">["status"]; transactionIds?: string[]; documentIds?: string[] }) {
+  const id = newId();
+  const now = new Date();
+  const op = createOp("claims", id, {
+    ...c,
+    transactionIds: c.transactionIds ?? [],
+    documentIds: c.documentIds ?? [],
+    timeline: [{ at: now, note: `Created as ${CLAIM_STATUS_LABEL[c.status]}` }],
+    submittedAt: c.status === "draft" ? null : now,
+  });
+  return { id, op };
+}
+
+/** Claim edit; a status change or note also lands on its timeline (and sets submittedAt the first time). */
+export function planClaimUpdate(claim: Doc<"claims">, patch: Values, note?: string | null): ChangeOp | null {
+  const p: Values = { ...patch };
+  const status = p.status as string | undefined;
+  const changed = status && status !== claim.status;
+  const n = note?.trim().slice(0, 300);
+  if (changed || n) {
+    const entry = [changed ? CLAIM_STATUS_LABEL[status] : null, n].filter(Boolean).join(": ");
+    p.timeline = [...claim.timeline, { at: new Date(), note: entry }];
+    if (changed && status !== "draft" && !claim.submittedAt) p.submittedAt = new Date();
+  }
+  return updateOp("claims", claim as unknown as Values & { _id: string }, p);
+}
