@@ -2,6 +2,7 @@ import "server-only";
 import { collection } from "@/lib/db/client";
 import { repos } from "@/lib/db/repos";
 import type { ChatUIMessage } from "./types";
+import { orderedTimestamps } from "./chat-order";
 
 /** Chat persistence: sessions + one row per UI message (parts include tool calls/results). */
 export function chatStore(userId: string) {
@@ -35,7 +36,7 @@ export function chatStore(userId: string) {
     /** Replaces the transcript (handles regenerate / edit-last which truncate history). */
     async save(sessionId: string, messages: ChatUIMessage[]) {
       await db.chatMessages.deleteMany({ sessionId });
-      const base = Date.now() - messages.length;
+      const times = orderedTimestamps(messages.map((m) => m.metadata?.createdAt));
       await db.chatMessages.insertMany(
         messages.map((m, i) => ({
           _id: m.id || undefined,
@@ -46,8 +47,8 @@ export function chatStore(userId: string) {
           usage: m.metadata?.totalTokens !== undefined
             ? { inputTokens: m.metadata.inputTokens, outputTokens: m.metadata.outputTokens, totalTokens: m.metadata.totalTokens }
             : undefined,
-          // keep order stable even within the same millisecond
-          createdAt: new Date(m.metadata?.createdAt ?? base + i),
+          // strictly increasing in array order, so a reload sorts like the live chat
+          createdAt: new Date(times[i]),
         })) as never,
       );
       await db.chatSessions.updateOne({ _id: sessionId }, { $set: { lastMessageAt: new Date() } });

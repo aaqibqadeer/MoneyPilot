@@ -133,10 +133,15 @@ export function Chat({ id, initialMessages, aiReady }: { id: string; initialMess
                       ) : (
                         <div className="bg-primary text-primary-foreground max-w-[85%] rounded-2xl rounded-br-sm px-4 py-2 text-sm whitespace-pre-wrap">{textOf(m)}</div>
                       )}
-                      {m.id === lastUser?.id && !busy && editing !== m.id && (
-                        <Button size="icon" variant="ghost" className="size-7 opacity-100 md:opacity-0 md:group-hover:opacity-100" aria-label="Edit message" onClick={() => { setEditing(m.id); setEditText(textOf(m)); }}>
-                          <Pencil className="size-3.5" />
-                        </Button>
+                      {editing !== m.id && (
+                        <div className={cn("text-muted-foreground flex items-center gap-1", REVEAL)}>
+                          <CopyButton text={textOf(m)} />
+                          {m.id === lastUser?.id && !busy && (
+                            <Button size="icon" variant="ghost" className="size-7" aria-label="Edit message" onClick={() => { setEditing(m.id); setEditText(textOf(m)); }}>
+                              <Pencil className="size-3.5" />
+                            </Button>
+                          )}
+                        </div>
                       )}
                     </div>
                   );
@@ -195,13 +200,14 @@ export function Chat({ id, initialMessages, aiReady }: { id: string; initialMess
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+              // Enter (and the mobile return key) adds a new line; Cmd/Ctrl+Enter sends.
+              if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && !e.nativeEvent.isComposing) {
                 e.preventDefault();
                 send(input);
               }
             }}
             placeholder={aiReady ? "Ask about your money…" : "Chat needs DEEPSEEK_API_KEY"}
-            enterKeyHint="send"
+            enterKeyHint="enter"
             disabled={!aiReady}
             rows={1}
             className="max-h-40 min-h-9 resize-none self-center border-0 bg-transparent shadow-none focus-visible:ring-0"
@@ -218,16 +224,48 @@ export function Chat({ id, initialMessages, aiReady }: { id: string; initialMess
 }
 
 function MessageActions({ text, tokens, onRegenerate }: { text: string; tokens?: number; onRegenerate?: () => void }) {
-  const [copied, setCopied] = useState(false);
   return (
-    <div className={cn("text-muted-foreground flex items-center gap-1 text-xs", "opacity-100 md:opacity-0 md:group-hover:opacity-100")}>
-      <Button size="icon" variant="ghost" className="size-7" aria-label="Copy" onClick={async () => { await navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 1500); }}>
-        {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
-      </Button>
+    <div className={cn("text-muted-foreground flex items-center gap-1 text-xs", REVEAL)}>
+      <CopyButton text={text} />
       {onRegenerate && (
         <Button size="icon" variant="ghost" className="size-7" aria-label="Regenerate" onClick={onRegenerate}><RefreshCw className="size-3.5" /></Button>
       )}
       {tokens ? <span className="ml-1">{tokens.toLocaleString()} tokens</span> : null}
     </div>
+  );
+}
+
+/** Always visible on touch/small screens; on desktop shown on hover or keyboard focus. */
+const REVEAL = "opacity-100 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100 pointer-coarse:opacity-100";
+
+async function copyText(text: string) {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    // older iOS / non-secure contexts
+    const ta = Object.assign(document.createElement("textarea"), { value: text, readOnly: true });
+    ta.style.cssText = "position:fixed;opacity:0";
+    document.body.append(ta);
+    ta.select();
+    const ok = document.execCommand("copy");
+    ta.remove();
+    return ok;
+  }
+}
+
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <Button
+      size="icon"
+      variant="ghost"
+      className="size-7"
+      aria-label={copied ? "Copied" : "Copy message"}
+      disabled={!text}
+      onClick={async () => { if (await copyText(text)) { setCopied(true); setTimeout(() => setCopied(false), 1500); } }}
+    >
+      {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
+    </Button>
   );
 }
