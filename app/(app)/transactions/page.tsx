@@ -37,18 +37,18 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
   return (
     <>
       <PageHeader title="Transactions" description={`${total.toLocaleString()} transactions`} />
-      <form className="mb-4 flex flex-col gap-2 sm:flex-row" action="/transactions">
-        <Input name="q" defaultValue={q} placeholder="Search name, merchant, notes…" className="sm:max-w-sm" />
-        <select name="account" defaultValue={accountId ?? ""} className="border-input bg-background h-9 rounded-md border px-3 text-sm">
+      <form className="mb-4 grid grid-cols-2 gap-2 sm:flex" action="/transactions">
+        <Input name="q" defaultValue={q} placeholder="Search name, merchant, notes…" className="col-span-2 sm:max-w-sm" />
+        <select name="account" defaultValue={accountId ?? ""} className="border-input bg-background h-10 min-w-0 rounded-md border px-3 text-sm sm:h-9">
           <option value="">All accounts</option>
           {accounts.map((a) => <option key={a._id} value={a._id}>{a.name}{a.mask ? ` •••${a.mask}` : ""}{a.archivedAt ? " (archived)" : ""}</option>)}
         </select>
-        <select name="tag" defaultValue={tagId ?? ""} className="border-input bg-background h-9 rounded-md border px-3 text-sm">
+        <select name="tag" defaultValue={tagId ?? ""} className="border-input bg-background h-10 min-w-0 rounded-md border px-3 text-sm sm:h-9">
           <option value="">All tags</option>
           <option value="none">Untagged</option>
           {sorted.map((t) => <option key={t._id} value={t._id}>{t.name}</option>)}
         </select>
-        <Button type="submit" variant="secondary">Filter</Button>
+        <Button type="submit" variant="secondary" className="col-span-2">Filter</Button>
       </form>
       {rows.length === 0 ? (
         <EmptyState icon={ArrowLeftRight} title="No transactions found" description={q || accountId || tagId ? "Try a different search or account." : "Connect a bank on Accounts to import transactions."} />

@@ -67,7 +67,9 @@ export function TransactionsTable({ rows, tags, userName }: { rows: TxnRowData[]
         </label>
         {rows.map((t) => (
           <div key={t._id} className={cn("hover:bg-muted/40 flex items-center gap-3 px-4 py-3", selected.includes(t._id) && "bg-muted/60")}>
-            <input type="checkbox" className="accent-primary size-4 shrink-0" checked={selected.includes(t._id)} onChange={() => toggle(t._id)} aria-label={`Select ${t.description ?? t.merchant ?? t.name}`} />
+            <label className="-my-3 -ml-4 flex shrink-0 cursor-pointer items-center self-stretch py-3 pr-1 pl-4">
+              <input type="checkbox" className="accent-primary size-4" checked={selected.includes(t._id)} onChange={() => toggle(t._id)} aria-label={`Select ${t.description ?? t.merchant ?? t.name}`} />
+            </label>
             <button type="button" onClick={() => setOpenId(t._id)} className="flex min-w-0 flex-1 items-center justify-between gap-3 text-left">
               <span className="min-w-0">
                 <span className="block truncate text-sm font-medium">{t.description ?? t.merchant ?? t.name}</span>
