@@ -83,9 +83,12 @@ function BillItem({ b, currency, userName }: { b: BillRow; currency: string; use
   const [pending, start] = useTransition();
   const st = statusOf(b);
   return (
-    <li className="flex items-center gap-3 py-3">
+    <li className="flex items-center gap-2 py-3 sm:gap-3">
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium">{b.name}</p>
+        <div className="flex items-baseline justify-between gap-2">
+          <p className="truncate text-sm font-medium">{b.name}</p>
+          <span className="tabular shrink-0 text-sm sm:hidden">{money(b.amountCents, currency)}</span>
+        </div>
         <p className="text-muted-foreground flex flex-wrap items-center gap-1.5 text-xs">
           <span className={cn(st === "overdue" && "text-destructive")}>{shortDate(b.dueDate)}</span>
           <span>· {SOURCE[b.source]}</span>
@@ -93,7 +96,7 @@ function BillItem({ b, currency, userName }: { b: BillRow; currency: string; use
           {b.recurrence !== "none" && <span className="inline-flex items-center gap-0.5">· <Repeat className="size-3" /> {b.recurrence}</span>}
         </p>
       </div>
-      <span className="tabular shrink-0 text-sm">{money(b.amountCents, currency)}</span>
+      <span className="tabular shrink-0 text-sm max-sm:hidden">{money(b.amountCents, currency)}</span>
       {st !== "paid" ? (
         <Button size="sm" variant="outline" disabled={pending} onClick={() => start(async () => void (await runAction(markBillPaid(b._id), `Marked ${b.name} paid`)))}>
           {pending ? <Loader2 className="animate-spin" /> : <Check />}<span className="sr-only sm:not-sr-only">Paid</span>
@@ -171,14 +174,17 @@ function RecurringItem({ r, currency, userName }: { r: RecurringRow; currency: s
   const [pending, start] = useTransition();
   const track = () => start(async () => void (await runAction(createBill({ name: r.name, amountCents: r.amountCents, dueDate: r.nextDate, recurrence: r.recurrence, ...(r.accountId ? { accountId: r.accountId } : {}) }, "recurring"), `Tracking ${r.name}`)));
   return (
-    <li className="flex items-center gap-3 py-3">
+    <li className="flex items-center gap-2 py-3 sm:gap-3">
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium">{r.name}</p>
+        <div className="flex items-baseline justify-between gap-2">
+          <p className="truncate text-sm font-medium">{r.name}</p>
+          <span className="tabular shrink-0 text-sm sm:hidden">{money(r.amountCents, currency)}</span>
+        </div>
         <p className="text-muted-foreground text-xs first-letter:uppercase">{r.recurrence} · {r.count} charges · next ~{shortDate(r.nextDate)}{r.account && ` · ${r.account}`}</p>
       </div>
-      <span className="tabular text-sm">{money(r.amountCents, currency)}</span>
+      <span className="tabular shrink-0 text-sm max-sm:hidden">{money(r.amountCents, currency)}</span>
       <CancelDialog merchant={r.name} amountCents={r.amountCents} currency={currency} account={r.account} userName={userName} />
-      <Button size="sm" variant="outline" disabled={pending} onClick={track}>{pending ? <Loader2 className="animate-spin" /> : <Plus />}Track</Button>
+      <Button size="sm" variant="outline" disabled={pending} onClick={track}>{pending ? <Loader2 className="animate-spin" /> : <Plus />}<span className="sr-only sm:not-sr-only">Track</span></Button>
     </li>
   );
 }

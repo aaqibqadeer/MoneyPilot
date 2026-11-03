@@ -9,7 +9,7 @@ export function Providers({ children, nonce }: { children: React.ReactNode; nonc
     <ThemeProvider nonce={nonce} attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
       <TooltipProvider delayDuration={300}>
         {children}
-        <Toaster position="top-center" richColors />
+        <Toaster position="top-center" richColors mobileOffset={{ top: "calc(env(safe-area-inset-top) + 12px)" }} />
       </TooltipProvider>
     </ThemeProvider>
   );

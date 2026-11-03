@@ -42,6 +42,9 @@ export function Chat({ id, initialMessages, aiReady }: { id: string; initialMess
   const [editing, setEditing] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
   const bottom = useRef<HTMLDivElement>(null);
+  const scroller = useRef<HTMLDivElement>(null);
+  // Follow the stream only while the reader is at the bottom; scrolling up to read pauses it.
+  const stick = useRef(true);
 
   const { messages, sendMessage, status, stop, regenerate, error } = useChat<ChatUIMessage>({
     id,
@@ -53,13 +56,18 @@ export function Chat({ id, initialMessages, aiReady }: { id: string; initialMess
   const busy = status === "submitted" || status === "streaming";
 
   useEffect(() => {
-    bottom.current?.scrollIntoView({ behavior: busy ? "auto" : "smooth", block: "end" });
+    if (stick.current) bottom.current?.scrollIntoView({ behavior: busy ? "auto" : "smooth", block: "end" });
   }, [messages, busy]);
+  const onScroll = () => {
+    const el = scroller.current;
+    if (el) stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+  };
 
   const send = (text: string) => {
     const t = text.trim();
     if (!t || busy) return;
     if (messages.length === 0) window.history.replaceState(null, "", `/chat/${id}`);
+    stick.current = true;
     sendMessage({ text: t });
     setInput("");
   };
@@ -87,8 +95,8 @@ export function Chat({ id, initialMessages, aiReady }: { id: string; initialMess
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex-1 overflow-y-auto">
-        <div className="mx-auto w-full max-w-3xl px-4 pt-12 pb-6 md:pt-6">
+      <div ref={scroller} onScroll={onScroll} className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+        <div className="mx-auto w-full max-w-3xl px-4 pt-14 pb-6 md:pt-6">
           {messages.length === 0 ? (
             <div className="flex flex-col items-center pt-[10vh] text-center">
               <div className="bg-primary/10 text-primary mb-4 flex size-12 items-center justify-center rounded-full">
@@ -178,7 +186,7 @@ export function Chat({ id, initialMessages, aiReady }: { id: string; initialMess
         className="bg-background shrink-0 border-t p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
         onSubmit={(e) => { e.preventDefault(); send(input); }}
       >
-        <div className="bg-card mx-auto flex max-w-3xl items-end gap-2 rounded-2xl border p-2 shadow-xs">
+        <div className="bg-card mx-auto flex max-w-3xl items-end gap-1.5 rounded-2xl border p-1.5 shadow-xs sm:gap-2 sm:p-2">
           <input ref={fileInput} type="file" className="hidden" accept=".csv,.txt,.pdf,.xlsx,.png,.jpg,.jpeg,.webp,.heic" onChange={(e) => attach(e.target.files?.[0])} />
           <Button type="button" size="icon" variant="ghost" disabled={!aiReady || busy || uploading} onClick={() => fileInput.current?.click()} aria-label="Attach a document">
             {uploading ? <Loader2 className="animate-spin" /> : <Paperclip />}
@@ -192,10 +200,11 @@ export function Chat({ id, initialMessages, aiReady }: { id: string; initialMess
                 send(input);
               }
             }}
-            placeholder={aiReady ? "Ask about your spending, bills, accounts…" : "Chat needs DEEPSEEK_API_KEY"}
+            placeholder={aiReady ? "Ask about your money…" : "Chat needs DEEPSEEK_API_KEY"}
+            enterKeyHint="send"
             disabled={!aiReady}
             rows={1}
-            className="max-h-40 min-h-9 resize-none border-0 bg-transparent shadow-none focus-visible:ring-0"
+            className="max-h-40 min-h-9 resize-none self-center border-0 bg-transparent shadow-none focus-visible:ring-0"
           />
           {busy ? (
             <Button type="button" size="icon" variant="secondary" onClick={() => stop()} aria-label="Stop"><Square className="size-3.5 fill-current" /></Button>

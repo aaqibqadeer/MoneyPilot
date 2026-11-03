@@ -19,6 +19,7 @@ Next.js 16 App Router, React 19, TS strict, pnpm, Tailwind 4, shadcn/ui (radix),
 - `lib/db/`: `schemas.ts` (Zod, all collections), `client.ts` (cached MongoClient, `collection()`), `memory.ts` (mingo in-memory backend for demo mode), `repos.ts` (`repos(userId)`: every query forced to userId), `indexes.ts`, `demo.ts` (seed).
 - `lib/changes.ts` changeSet apply/revert (field whitelist, stale-state check, auditLog); `lib/edits.ts` builds ops (txn edits, tags, rules); `app/actions/edits.ts` server actions.
 - `lib/auth/` sessions + WebAuthn; `proxy.ts` optimistic cookie gate + CSP nonce. `lib/bank/` provider + sync. `lib/ai/` model, prompt, tools, analytics guard, chat store.
+- Mobile: `components/shell/viewport-sync.tsx` sets `--vvh`/`--kb` so the shell fits above the keyboard; dialogs are bottom sheets below `sm`; `pointer-coarse:` enlarges buttons/inputs; touch inputs ≥16px (globals.css).
 - App code reads data only via `repos(userId)`; raw `collection()` only in auth plumbing, cron and webhooks.
 
 ## 4. Routes

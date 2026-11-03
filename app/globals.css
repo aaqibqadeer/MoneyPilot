@@ -76,3 +76,39 @@
     font-variant-numeric: tabular-nums;
   }
 }
+
+/* Mobile polish (unlayered so it beats utilities). */
+html,
+body {
+  overscroll-behavior: none;
+}
+@media (pointer: coarse) {
+  /* ≥16px stops iOS zooming into focused fields. */
+  input:not([type="checkbox"], [type="radio"], [type="range"]),
+  textarea,
+  select {
+    font-size: 16px;
+  }
+  input[type="checkbox"],
+  input[type="radio"] {
+    width: 1.25rem;
+    height: 1.25rem;
+  }
+  a,
+  button,
+  label,
+  select,
+  [role="button"] {
+    touch-action: manipulation;
+  }
+}
+/* Side sheets clear the notch and home indicator. */
+[data-slot="sheet-content"]:is([data-side="left"], [data-side="right"]) {
+  border-top: env(safe-area-inset-top) solid transparent;
+  border-bottom: env(safe-area-inset-bottom) solid transparent;
+  background-clip: border-box;
+}
+[data-slot="sheet-content"][data-side="bottom"] {
+  border-bottom: env(safe-area-inset-bottom) solid transparent;
+  background-clip: border-box;
+}
