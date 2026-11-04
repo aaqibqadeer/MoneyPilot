@@ -1,5 +1,6 @@
 "use client";
 
+import { accountLabel } from "@/lib/accounts";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -35,7 +36,7 @@ export function DeleteDocumentButton({ id, name, after }: { id: string; name: st
 type Sel = { transactions: Set<number>; bills: Set<number>; claims: Set<number> };
 
 export function DocumentReview({ id, ex, canImport, accounts, currency, hasFile }: {
-  id: string; ex: Extracted; canImport: boolean; accounts: { _id: string; name: string; mask?: string }[]; currency: string; hasFile: boolean;
+  id: string; ex: Extracted; canImport: boolean; accounts: { _id: string; name: string; nickname?: string; mask?: string }[]; currency: string; hasFile: boolean;
 }) {
   const [sel, setSel] = useState<Sel>(() => ({
     transactions: new Set(ex.transactions.flatMap((t, i) => (t.duplicateOf ? [] : [i]))),
@@ -80,7 +81,7 @@ export function DocumentReview({ id, ex, canImport, accounts, currency, hasFile 
                 <label htmlFor="acct" className="text-muted-foreground">Account</label>
                 <select id="acct" className={select} value={accountId} onChange={(e) => setAccountId(e.target.value)}>
                   <option value="">None (manual)</option>
-                  {accounts.map((a) => <option key={a._id} value={a._id}>{a.name}{a.mask ? ` ··${a.mask}` : ""}</option>)}
+                  {accounts.map((a) => <option key={a._id} value={a._id}>{accountLabel(a)}</option>)}
                 </select>
                 <Button size="sm" variant="ghost" onClick={() => setSel((s) => ({ ...s, transactions: s.transactions.size ? new Set() : new Set(ex.transactions.map((_, i) => i)) }))}>
                   {sel.transactions.size ? "Untick all" : "Tick all"}

@@ -14,7 +14,7 @@ export interface ProposalOutput {
   newTags?: string[];
   rules?: string[];
   /** Claims, bills, manual transactions, tag and rule edits. */
-  records?: { type: "transaction" | "tag" | "rule" | "claim" | "bill"; action: "add" | "edit" | "archive" | "restore"; title: string; changes: string[] }[];
+  records?: { type: "transaction" | "tag" | "rule" | "claim" | "bill" | "account"; action: "add" | "edit" | "archive" | "restore"; title: string; changes: string[] }[];
   preview?: { date: string | null; description: string; amount: number | null; changes: string[] }[];
   /** Auto-tag previews group by tag instead of listing transactions. */
   groups?: { tag: string; isNew: boolean; count: number; confidence: number; examples: string[] }[];

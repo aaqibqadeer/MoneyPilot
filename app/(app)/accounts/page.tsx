@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { Archive, AlertTriangle, AppWindow, CheckCircle2, CreditCard, ExternalLink, Landmark } from "lucide-react";
 import { PlaidLinkButton, SyncNowButton } from "@/components/accounts/plaid-link-button";
+import { AccountName } from "@/components/accounts/account-name";
+import { RenameAccountButton } from "@/components/accounts/rename-account-button";
 import { RemoveBankButton } from "@/components/accounts/remove-bank-button";
 import { EmptyState } from "@/components/shell/empty-state";
 import { PageHeader } from "@/components/shell/page-header";
@@ -83,7 +85,10 @@ export default async function AccountsPage() {
                           {a.type === "credit" ? <CreditCard className="size-4" /> : <Landmark className="size-4" />}
                         </div>
                         <div>
-                          <p className="text-sm font-medium">{a.name} {a.mask && <span className="text-muted-foreground">•••{a.mask}</span>}</p>
+                          <div className="flex items-center gap-1 text-sm">
+                            <AccountName account={a} />
+                            <RenameAccountButton id={a._id} name={a.name} mask={a.mask} nickname={a.nickname} />
+                          </div>
                           <p className="text-muted-foreground text-xs"><span className="capitalize">{a.subtype ?? a.type}</span> · <Link href={`/transactions?account=${a._id}`} className="underline-offset-2 hover:underline">Transactions</Link></p>
                           {a.apps.length > 0 && (
                             <div className="mt-1 flex flex-wrap items-center gap-1" aria-label="Apps seen in transactions">

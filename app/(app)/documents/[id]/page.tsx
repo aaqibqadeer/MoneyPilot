@@ -18,7 +18,7 @@ export default async function DocumentPage({ params }: PageProps<"/documents/[id
   const doc = await db.documents.byId(id);
   if (!doc) notFound();
   const [accounts, cs] = await Promise.all([
-    db.accounts.find({}, { sort: { name: 1 }, projection: { _id: 1, name: 1, mask: 1 } }),
+    db.accounts.find({}, { sort: { name: 1 }, projection: { _id: 1, name: 1, nickname: 1, mask: 1 } }),
     doc.changeSetId ? db.changeSets.byId(doc.changeSetId) : null,
   ]);
   const canImport = doc.status === "parsed" || (doc.status === "imported" && cs?.status !== "applied");
@@ -34,7 +34,7 @@ export default async function DocumentPage({ params }: PageProps<"/documents/[id
       ) : (
         <DocumentReview
           id={doc._id} ex={ex} canImport={canImport} currency={user.currency} hasFile={!!doc.blobUrl}
-          accounts={accounts.map((a) => ({ _id: a._id, name: a.name, mask: a.mask }))}
+          accounts={accounts.map((a) => ({ _id: a._id, name: a.name, nickname: a.nickname, mask: a.mask }))}
         />
       )}
     </>

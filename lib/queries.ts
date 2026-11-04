@@ -1,4 +1,5 @@
 import "server-only";
+import { accountLabel } from "@/lib/accounts";
 import { repos } from "@/lib/db/repos";
 import { detectRecurring, merchantKey } from "@/lib/bills/recurring";
 import { APP_QUERY_SOURCE, bankAccessGuide, detectApps } from "@/lib/bank/connected-apps";
@@ -39,17 +40,18 @@ export function appTransactions(userId: string) {
 
 export interface TxnQuery {
   q?: string;
-  accountId?: string;
+  /** Any of these accounts; empty = all. */
+  accountIds?: string[];
   /** Tag id, or "none" for untagged. */
   tagId?: string;
   page?: number;
   pageSize?: number;
 }
 
-export async function listTransactions(userId: string, { q, accountId, tagId, page = 1, pageSize = 50 }: TxnQuery) {
+export async function listTransactions(userId: string, { q, accountIds = [], tagId, page = 1, pageSize = 50 }: TxnQuery) {
   const db = repos(userId);
   const filter: Record<string, unknown> = { deletedAt: { $exists: false } };
-  if (accountId) filter.accountId = accountId;
+  if (accountIds.length) filter.accountId = accountIds.length === 1 ? accountIds[0] : { $in: accountIds };
   if (tagId) filter.tagIds = tagId === "none" ? { $size: 0 } : tagId;
   if (q) {
     const rx = { $regex: q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), $options: "i" };
@@ -58,7 +60,7 @@ export async function listTransactions(userId: string, { q, accountId, tagId, pa
   const [rows, total, accounts, tags] = await Promise.all([
     db.transactions.find(filter, { sort: { date: -1, _id: 1 }, skip: (page - 1) * pageSize, limit: pageSize, projection: { raw: 0 } }),
     db.transactions.count(filter),
-    db.accounts.find({}),
+    db.accounts.find({}, { sort: { name: 1 } }),
     db.tags.find({}),
   ]);
   return { rows, total, page, pageSize, accounts, tags };
@@ -166,10 +168,10 @@ export async function billsOverview(userId: string) {
       { deletedAt: { $exists: false }, pending: false, amountCents: { $gt: 0 }, date: { $gte: new Date(now.getTime() - 400 * 86400000) }, category: { $nin: ["TRANSFER_OUT", "LOAN_PAYMENTS"] } },
       { projection: { name: 1, merchant: 1, description: 1, date: 1, amountCents: 1, accountId: 1 }, limit: 5000 },
     ),
-    db.accounts.find({}, { projection: { name: 1, mask: 1, archivedAt: 1 } }),
+    db.accounts.find({}, { projection: { name: 1, nickname: 1, mask: 1, archivedAt: 1 } }),
   ]);
-  /** "Rewards Card •••4242", plus "(archived)" for a removed bank's account. */
-  const accountNames = Object.fromEntries(accounts.map((a) => [a._id, `${a.name}${a.mask ? ` •••${a.mask}` : ""}${a.archivedAt ? " (archived)" : ""}`]));
+  /** "Joint (Rewards Card •••4242)", plus "(archived)" for a removed bank's account. */
+  const accountNames = Object.fromEntries(accounts.map((a) => [a._id, accountLabel(a)]));
   const tracked = new Set(bills.map((b) => merchantKey(b.name)));
   const recurring = detectRecurring(
     txns.map((t) => {
