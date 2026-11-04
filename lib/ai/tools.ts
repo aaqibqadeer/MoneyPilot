@@ -3,6 +3,8 @@ import { tool } from "ai";
 import { z } from "zod";
 import { PLAID_PORTAL_URL, bankAccessGuide, detectApps } from "@/lib/bank/connected-apps";
 import { repos } from "@/lib/db/repos";
+import { accountLabel, matchAccounts } from "@/lib/accounts";
+import type { Account } from "@/lib/db/schemas";
 import { cancelHelp, cancelLetter, DISPUTE_REASONS, disputeDeadline, disputeLetter, issuerHelp, refundLetter, type DisputeReason } from "@/lib/assist";
 import { appTransactions } from "@/lib/queries";
 import { AnalyticsQueryError, buildScopedPipeline, ANALYTICS_COLLECTIONS } from "./analytics";
@@ -23,13 +25,15 @@ export function readTools(userId: string, profile: { name?: string; email?: stri
 
   return {
     getAccounts: tool({
-      description: "List bank accounts with balances (dollars), type, credit limit and institution. archived: true = bank disconnected, balance frozen at archivedOn, history still searchable.",
+      description: "List bank accounts with balances (dollars), type, credit limit and institution. nickname = the user's own name for it (prefer it when talking to the user, with the bank name when it helps); label = nickname + bank name + last 4. archived: true = bank disconnected, balance frozen at archivedOn, history still searchable.",
       inputSchema: z.object({}),
       execute: async () => {
         const [accounts, items] = await Promise.all([db.accounts.find({}), db.items.find({})]);
         return accounts.map((a) => ({
           id: a._id,
           name: a.name,
+          ...(a.nickname ? { nickname: a.nickname } : {}),
+          label: accountLabel(a, { archived: false }),
           mask: a.mask,
           type: a.type,
           subtype: a.subtype,
@@ -63,6 +67,7 @@ export function readTools(userId: string, profile: { name?: string; email?: stri
         from: isoDate.optional(),
         to: isoDate.optional().describe("Inclusive end date"),
         accountId: z.string().optional(),
+        accounts: accountRefs,
         tag: z.string().optional().describe("Tag name"),
         category: z.string().optional().describe("Provider category, e.g. FOOD_AND_DRINK"),
         minAmount: z.number().optional(),
@@ -71,12 +76,13 @@ export function readTools(userId: string, profile: { name?: string; email?: stri
         limit: z.number().int().min(1).max(100).default(25),
       }),
       execute: async (i) => {
-        const tags = await tagMaps();
-        const f = txnFilter(i, tags.byName);
-        const [rows, total, accounts] = await Promise.all([
+        const [tags, accounts] = await Promise.all([tagMaps(), db.accounts.find({})]);
+        const acc = resolveAccounts(accounts, i);
+        if ("error" in acc) return acc;
+        const f = txnFilter({ ...i, accountIds: acc.ids }, tags.byName);
+        const [rows, total] = await Promise.all([
           db.transactions.find(f, { sort: { date: -1 }, limit: i.limit, projection: { raw: 0 } }),
           db.transactions.count(f),
-          db.accounts.find({}),
         ]);
         return {
           total,
@@ -86,7 +92,7 @@ export function readTools(userId: string, profile: { name?: string; email?: stri
             date: day(t.date),
             description: t.description ?? t.merchant ?? t.name,
             amount: dollars(t.amountCents),
-            account: accounts.find((a) => a._id === t.accountId)?.name,
+            account: nameOf(accounts, t.accountId),
             category: t.category,
             tags: t.tagIds.map((x) => tags.byId.get(x)).filter(Boolean),
             pending: t.pending,
@@ -106,12 +112,16 @@ export function readTools(userId: string, profile: { name?: string; email?: stri
         direction: z.enum(["spend", "income", "both"]).default("spend"),
         tag: z.string().optional().describe("Only this tag"),
         query: z.string().optional().describe("Only transactions whose name/merchant/description matches"),
+        accounts: accountRefs,
         includeTransfers: z.boolean().default(false),
         limit: z.number().int().min(1).max(50).default(15),
       }),
       execute: async (i) => {
-        const tags = await tagMaps();
+        const [tags, accounts] = await Promise.all([tagMaps(), db.accounts.find({})]);
+        const acc = resolveAccounts(accounts, i);
+        if ("error" in acc) return acc;
         const match: Record<string, unknown> = { ...notDeleted, date: { $gte: new Date(i.from), $lte: endOfDay(i.to) } };
+        if (acc.ids) match.accountId = { $in: acc.ids };
         if (i.direction === "spend") match.amountCents = { $gt: 0 };
         if (i.direction === "income") match.amountCents = { $lt: 0 };
         if (!i.includeTransfers) match.category = { $nin: ["TRANSFER_IN", "TRANSFER_OUT", "LOAN_PAYMENTS"] };
@@ -137,10 +147,9 @@ export function readTools(userId: string, profile: { name?: string; email?: stri
           { $limit: i.limit },
         );
         const rows = await db.transactions.aggregate<{ _id: string | null; totalCents: number; count: number }>(pipeline);
-        const accounts = i.groupBy === "account" ? await db.accounts.find({}) : [];
         const label = (id: string | null) =>
           i.groupBy === "tag" ? (id ? tags.byId.get(id) ?? "Unknown tag" : "Untagged")
-          : i.groupBy === "account" ? accounts.find((a) => a._id === id)?.name ?? "Manual"
+          : i.groupBy === "account" ? nameOf(accounts, id ?? undefined) ?? "Manual"
           : id ?? "Unknown";
         const groups = rows.map((r) => ({ group: label(r._id), total: dollars(Math.abs(r.totalCents)), count: r.count }));
         return { from: i.from, to: i.to, direction: i.direction, groupBy: i.groupBy, grandTotal: dollars(groups.reduce((s, g) => s + (g.total ?? 0) * 100, 0)), groups };
@@ -173,7 +182,7 @@ export function readTools(userId: string, profile: { name?: string; email?: stri
             reviewAllAppsAt: bankAccessGuide(i.institutionName),
             accounts: accounts
               .filter((a) => a.itemId === i._id)
-              .map((a) => ({ account: a.name, mask: a.mask, appsSeen: (apps[a._id] ?? []).map((x) => ({ app: x.name, kind: x.kind, transactions: x.count, lastSeen: day(x.lastSeen) })) })),
+              .map((a) => ({ account: a.name, ...(a.nickname ? { nickname: a.nickname } : {}), mask: a.mask, appsSeen: (apps[a._id] ?? []).map((x) => ({ app: x.name, kind: x.kind, transactions: x.count, lastSeen: day(x.lastSeen) })) })),
           })),
         };
       },
@@ -187,7 +196,7 @@ export function readTools(userId: string, profile: { name?: string; email?: stri
         return ls.map((l) => {
           const a = accounts.find((x) => x._id === l.accountId);
           return {
-            account: a?.name, mask: a?.mask, kind: l.kind, currentBalance: dollars(a?.currentCents), creditLimit: dollars(a?.limitCents),
+            account: a?.name, ...(a?.nickname ? { nickname: a.nickname } : {}), mask: a?.mask, kind: l.kind, currentBalance: dollars(a?.currentCents), creditLimit: dollars(a?.limitCents),
             statementBalance: dollars(l.lastStatementBalanceCents), minimumPayment: dollars(l.minimumPaymentCents),
             nextPaymentDueDate: day(l.nextPaymentDueDate), lastPaymentDate: day(l.lastPaymentDate), lastPayment: dollars(l.lastPaymentCents), apr: l.aprPercent,
           };
@@ -297,6 +306,8 @@ export interface TxnWhere {
   from?: string;
   to?: string;
   accountId?: string;
+  /** Resolved account ids (any of them). */
+  accountIds?: string[];
   tag?: string;
   category?: string;
   minAmount?: number;
@@ -312,7 +323,8 @@ export function txnFilter(i: TxnWhere, tagIdByName: Map<string, string>) {
     f.$or = [{ name: rx }, { merchant: rx }, { description: rx }, { notes: rx }];
   }
   if (i.from || i.to) f.date = { ...(i.from ? { $gte: new Date(i.from) } : {}), ...(i.to ? { $lte: endOfDay(i.to) } : {}) };
-  if (i.accountId) f.accountId = i.accountId;
+  if (i.accountIds) f.accountId = { $in: i.accountIds };
+  else if (i.accountId) f.accountId = i.accountId;
   if (i.tag) f.tagIds = i.tag.toLowerCase() === "untagged" ? { $size: 0 } : tagIdByName.get(i.tag.toLowerCase()) ?? "__none__";
   if (i.category) f.category = i.category.toUpperCase();
   if (i.minAmount !== undefined || i.maxAmount !== undefined) {
@@ -321,6 +333,26 @@ export function txnFilter(i: TxnWhere, tagIdByName: Map<string, string>) {
   if (i.pending !== undefined) f.pending = i.pending;
   return f;
 }
+
+export const accountRefs = z
+  .array(z.string().min(1).max(80))
+  .max(20)
+  .optional()
+  .describe("Only these accounts (any of them): ids, nicknames, bank names or last 4 digits");
+
+/** Turns accountId/accounts refs into ids; an unknown ref is an error so the model can retry instead of reporting $0. */
+export function resolveAccounts(accounts: Account[], i: { accountId?: string; accounts?: string[] }): { ids?: string[] } | { error: string } {
+  const refs = [...(i.accounts ?? []), ...(i.accountId ? [i.accountId] : [])];
+  if (!refs.length) return {};
+  const { ids, unmatched } = matchAccounts(accounts, refs);
+  if (unmatched.length) return { error: `No account matches ${unmatched.map((u) => `"${u}"`).join(", ")}. Call getAccounts to see names and nicknames.` };
+  return { ids };
+}
+
+const nameOf = (accounts: Account[], id?: string) => {
+  const a = id ? accounts.find((x) => x._id === id) : undefined;
+  return a ? accountLabel(a, { archived: false }) : undefined;
+};
 
 function endOfDay(d: string) {
   return d.length <= 10 ? new Date(`${d}T23:59:59.999Z`) : new Date(d);

@@ -72,6 +72,8 @@ export const accountSchema = z.object({
   itemId: id,
   providerAccountId: z.string(),
   name: z.string(),
+  /** User's own name for the account; never touched by sync. */
+  nickname: z.string().max(60).optional(),
   officialName: z.string().optional(),
   mask: z.string().optional(),
   type: z.string(), // depository | credit | loan | investment | other

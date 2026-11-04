@@ -13,6 +13,7 @@ export const EDITABLE = {
   tags: ["name", "color", "parentId"],
   tagRules: ["field", "match", "pattern", "tagIds", "enabled"],
   bills: ["name", "amountCents", "dueDate", "source", "accountId", "status", "recurrence", "paidTransactionId", "archivedAt"],
+  accounts: ["nickname"],
   claims: ["title", "kind", "counterparty", "status", "claimedCents", "approvedCents", "paidCents", "submittedAt", "deadlineAt", "transactionIds", "documentIds", "timeline", "notes", "archivedAt"],
 } as const;
 export type Editable = keyof typeof EDITABLE;

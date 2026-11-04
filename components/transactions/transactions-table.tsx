@@ -27,6 +27,8 @@ export interface TxnRowData {
   amountCents: number;
   currency: string;
   account: string;
+  /** Nickname plus the bank's own name and mask. */
+  accountFull?: string;
   category?: string;
   categoryDetailed?: string;
   tagIds: string[];
@@ -130,7 +132,7 @@ function TxnEditor({ t, tags, userName, onDone }: { t: TxnRowData; tags: TagLite
       <SheetHeader>
         <SheetTitle className="pr-6">{t.description ?? t.merchant ?? t.name}</SheetTitle>
         <SheetDescription>
-          {shortDate(t.date)} · {t.account}{t.pending ? " · pending" : ""}
+          {shortDate(t.date)} · {t.accountFull ?? t.account}{t.pending ? " · pending" : ""}
         </SheetDescription>
       </SheetHeader>
       <div className="space-y-5 px-4">

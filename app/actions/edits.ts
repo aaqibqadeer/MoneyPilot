@@ -244,3 +244,15 @@ export async function deleteClaim(id: string) {
     return { changeSetId: await commit(userId, `Deleted claim ${claim.title}`, [deleteOp("claims", claim as never)]) };
   });
 }
+
+/** Sets (or clears, with "") the user's own nickname for an account. Archived accounts can be renamed too. */
+export async function renameAccount(id: string, nickname: string) {
+  return run(async (userId) => {
+    const n = z.string().trim().max(60).parse(nickname);
+    const acct = await repos(userId).accounts.byId(idSchema.parse(id));
+    if (!acct) throw new HttpError(404, "Account not found");
+    const op = updateOp("accounts", acct as unknown as Parameters<typeof updateOp>[1], { nickname: n || null });
+    if (!op) return {};
+    return { changeSetId: await commit(userId, n ? `Named ${acct.name} "${n}"` : `Removed the nickname from ${acct.name}`, [op]) };
+  });
+}

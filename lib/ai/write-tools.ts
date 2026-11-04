@@ -5,7 +5,7 @@ import { createChangeSet, createOp, MAX_OPS, updateOp, type ChangeOp } from "@/l
 import { newId } from "@/lib/db/client";
 import { repos } from "@/lib/db/repos";
 import { planBillPaid, planClaimCreate, planClaimUpdate, planRuleApply, planTagCreate, planTransactionEdits, ruleRegex, type TxnEdit } from "@/lib/edits";
-import { txnFilter } from "./tools";
+import { accountRefs, resolveAccounts, txnFilter } from "./tools";
 
 const isoDate = z.string().describe("ISO date, e.g. 2026-10-01");
 const tagNames = z.array(z.string().min(1).max(40)).max(10);
@@ -14,6 +14,7 @@ const where = z.object({
   from: isoDate.optional(),
   to: isoDate.optional().describe("Inclusive end date"),
   accountId: z.string().optional(),
+  accounts: accountRefs,
   tag: z.string().optional().describe('Tag name, or "untagged"'),
   category: z.string().optional(),
   minAmount: z.number().optional().describe("Dollars; positive = money out"),
@@ -119,6 +120,16 @@ export const proposeInput = z.object({
     )
     .max(10)
     .default([]),
+  accounts: z
+    .array(
+      z.object({
+        id: z.string().describe("Account id from getAccounts"),
+        nickname: z.string().max(60).nullable().describe("The user's own name for the account; null or empty removes it. The bank's name is kept."),
+      }),
+    )
+    .max(20)
+    .default([])
+    .describe("Rename accounts (nickname only)"),
 });
 
 /**
@@ -130,7 +141,7 @@ export function writeTools(userId: string) {
   return {
     proposeChanges: tool({
       description:
-        "Propose changes to the user's data: edit transactions (description, notes, add/remove tags), add manual transactions, create/edit tags and tag rules (switch rules off), create/update/archive claims and bills, mark bills paid. Nothing changes until the user taps Apply on the card shown in chat. Find ids first (searchTransactions, getTags, getClaims, getBills, getAccounts), or pass a `where` filter for bulk transaction edits. Nothing is ever deleted: archive instead. Afterwards tell the user to review and apply; never say it is done.",
+        "Propose changes to the user's data: nickname accounts, edit transactions (description, notes, add/remove tags), add manual transactions, create/edit tags and tag rules (switch rules off), create/update/archive claims and bills, mark bills paid. Nothing changes until the user taps Apply on the card shown in chat. Find ids first (searchTransactions, getTags, getClaims, getBills, getAccounts), or pass a `where` filter for bulk transaction edits. Nothing is ever deleted: archive instead. Afterwards tell the user to review and apply; never say it is done.",
       inputSchema: proposeInput,
       execute: async (input) => {
         try {
@@ -146,7 +157,7 @@ export function writeTools(userId: string) {
 type Input = z.infer<typeof proposeInput>;
 type Values = Record<string, unknown>;
 type Doc = Values & { _id: string };
-export type RecordChange = { type: "transaction" | "tag" | "rule" | "claim" | "bill"; action: "add" | "edit" | "archive" | "restore"; title: string; changes: string[] };
+export type RecordChange = { type: "transaction" | "tag" | "rule" | "claim" | "bill" | "account"; action: "add" | "edit" | "archive" | "restore"; title: string; changes: string[] };
 
 const cents = (d: number | null | undefined) => (d === undefined ? undefined : d === null ? null : Math.round(d * 100));
 const toDate = (s: string | null | undefined) => {
@@ -183,7 +194,7 @@ function describe(op: ChangeOp, names: Map<string, string>): string[] {
 }
 
 async function propose(userId: string, db: ReturnType<typeof repos>, input: Input) {
-  const nothing = !input.newTags.length && !input.edits.length && !input.rules.length && !input.newTransactions.length && !input.ruleUpdates.length && !input.tagUpdates.length && !input.claims.length && !input.bills.length;
+  const nothing = !input.newTags.length && !input.edits.length && !input.rules.length && !input.newTransactions.length && !input.ruleUpdates.length && !input.tagUpdates.length && !input.claims.length && !input.bills.length && !input.accounts.length;
   if (nothing) return { error: "Nothing to change" };
   const existing = await db.tags.find({});
   const byName = new Map(existing.map((t) => [t.name.toLowerCase(), t._id]));
@@ -214,12 +225,25 @@ async function propose(userId: string, db: ReturnType<typeof repos>, input: Inpu
   };
   const ownTxnIds = async (ids?: string[]) => (ids ? (await db.transactions.find({ _id: { $in: ids } }, { projection: { _id: 1 } })).map((t) => t._id) : undefined);
 
+  // account nicknames
+  let allAccounts: Awaited<ReturnType<typeof db.accounts.find>> | undefined;
+  for (const a of input.accounts) {
+    const acct = await db.accounts.byId(a.id);
+    if (!acct) throw new Error(`Unknown account ${a.id}. Use getAccounts for ids.`);
+    const nickname = a.nickname?.trim() || null;
+    const op = updateOp("accounts", acct as unknown as Doc, { nickname });
+    if (op) ops.push(op);
+    record("account", "edit", `${acct.name}${acct.mask ? ` •••${acct.mask}` : ""}`, op);
+  }
+
   // transaction edits
   const edits: TxnEdit[] = [];
   for (const e of input.edits) {
     let ids = e.transactionIds ?? [];
     if (e.where) {
-      const found = await db.transactions.find(txnFilter(e.where, byName), { projection: { _id: 1 }, limit: MAX_OPS + 1 });
+      const acc = resolveAccounts(allAccounts ??= await db.accounts.find({}), e.where);
+      if ("error" in acc) return acc;
+      const found = await db.transactions.find(txnFilter({ ...e.where, accountIds: acc.ids }, byName), { projection: { _id: 1 }, limit: MAX_OPS + 1 });
       if (found.length > MAX_OPS) return { error: `That filter matches more than ${MAX_OPS} transactions. Narrow it down.` };
       ids = [...ids, ...found.map((t) => t._id)];
     }
